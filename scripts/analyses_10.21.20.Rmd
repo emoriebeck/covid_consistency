@@ -1,0 +1,1422 @@
+---
+title: "Consistency of Idiographic Personality in the Wake of COVID-19: A Longitudinal ESM Study"
+output: html_document
+author: 
+  - name        : Emorie D Beck
+    affiliation : 2
+  - name        : Joshua J Jackson
+    affiliation : 1
+affiliation:
+  - id          : 1
+    institution : Washington University in St. Louis
+  - id          : 2
+    institution : Northwestern University Feinberg School of Medicine
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, messages = F)
+options(knitr.kable.NA = '')
+```
+
+# Workspace  
+## Packages  
+```{r packages}
+library(gimme)
+library(qgraph)
+library(psych)
+library(Amelia)
+library(gridExtra)
+library(rmarkdown)
+library(forcats)
+library(brms)
+library(broom)
+library(tidybayes)
+library(knitr)
+library(kableExtra)
+library(lubridate)
+library(plyr)
+library(stringr)
+library(tidyverse)
+```
+
+## Codebooks  
+```{r codebooks}
+# path to files
+data_path <- "~/Box/network/other projects/covid study"
+
+# codebook for trait level measures for compositing and measures
+trait_codebook <- sprintf("%s/data/baseline_items_prereg.xlsx", data_path) %>% 
+  readxl::read_xlsx(sheet = "codebook")
+
+# codebook for esm measures for compositing and measures
+esm_codebook <- sprintf("%s/data/ESM_items_prereg.xlsx", data_path) %>%
+  readxl::read_xlsx(sheet = "codebook")
+
+# keep these to make it nicer to rename facets later
+short.facets <- esm_codebook %>% filter(type == "BFI2") %>% select(Facet, shrtFacet) %>% distinct()
+big5 <- tibble(
+  letter = c("E", "A", "C", "N", "O"),
+  trait = c("Extraversion", "Agreeableness","Conscientiousness", "Neuroticism", "Openness")
+  )
+
+predictors <- unique(trait_codebook$Inventory)
+```
+
+## Data  
+### Pre-Share Cleaning  
+For the purposes of this study, we are only sharing the data used in this study (for both items and participants). ESM data were pre-cleaned because data imported from jsPsych are in a format not easily interpretable within R. An R script that shows the full procedure for extracting jsPscyh data is available on the OSF page for this study. Trait data were downloaded from Qualtrics and directly imported and cleaned as shown below.  
+
+In addition, in order to anonymize participants, we have changed their ID's using our master list, which we cannot make available because it contains identifying information.  
+#### ESM  
+```{r esm data combine, eval = F}
+participants <- googlesheets4::sheets_read("https://docs.google.com/spreadsheets/d/1r808gQ-LWfG98J9rvt_CRMHtmCFgtdcfThl0XA0HHbM/edit#gid=16299281", sheet = "ESM_COVID") %>%
+  select(SID, Name, Email) %>%
+  mutate(new = seq(1, nrow(.), 1),
+         new = ifelse(new < 10, paste("0", new, sep = ""), new))
+1
+# wave 2 esm 
+load(sprintf("%s/data/esm/clean_data_C1_2020-05-07.RData", data_path))
+BFI_w2 <- BFI %>% mutate(wave = 2)
+w2_subs <- unique(BFI_w2$SID)
+
+# wave 1 esm 
+load(sprintf("%s/data/esm/clean_data_w1_2020-05-07.RData", data_path))
+BFI_w1 <- BFI %>% mutate(wave = 1) %>% filter(SID %in% w2_subs)
+
+# combine waves  
+BFI <- BFI_w1 %>% full_join(BFI_w2) %>% distinct() %>%
+  mutate(SID = mapvalues(SID, participants$SID, participants$new))
+save(BFI, file = sprintf("%s/data/esm/cleaned_combined_2020-05-07.RData", data_path))
+rm(list = ls())
+```
+
+```{r}
+load(sprintf("%s/data/esm/cleaned_combined_2020-05-07.RData", data_path))
+```
+
+#### Trait  
+```{r trait data combine, eval = F}
+participants <- googlesheets4::sheets_read("https://docs.google.com/spreadsheets/d/1r808gQ-LWfG98J9rvt_CRMHtmCFgtdcfThl0XA0HHbM/edit?usp=sharing", sheet = "ESM_COVID") %>%
+  select(SID, Name, Email) %>%
+  mutate(new = seq(1, n(), 1),
+         new = ifelse(new < 10, paste("0", new, sep = ""), new))
+1
+
+old_names <- trait_codebook$`New #`
+
+# wave 1 trait
+baseline <- sprintf("%s/data/trait/baseline_05.07.20.csv", data_path) %>% 
+  read_csv() %>%
+  filter(!row_number() %in% c(1,2) & !is.na(SID) & SID %in% participants$SID) %>% 
+  select(SID, StartDate, gender, YOB, race, ethnicity, one_of(old_names)) %>%
+  mutate(SID = mapvalues(SID, participants$SID, participants$new)) %>%
+  mutate(wave = 1,
+         gender = factor(gender, c(1,2), c("Male", "Female")),
+         YOB = substr(YOB, nchar(YOB)-4+1, nchar(YOB)),
+         race = mapvalues(race, 1:7, c(0,1,3,2,3,3,3)),
+         ethnicity = ifelse(!is.na(ethnicity), 3, NA),
+         race = ifelse(is.na(ethnicity), race, ifelse(ethnicity == 3, ethnicity)))  %>%
+  select(-ethnicity)
+# wave 2 trait - March 20, 2020
+covid_baseline <- sprintf("%s/data/trait/baseline_COVID_05.07.20.csv", data_path) %>% 
+  read_csv() %>%
+  filter(!row_number() %in% c(1,2) & !is.na(SID) & SID %in% participants$SID) %>%
+  select(SID, one_of(old_names)) %>%
+  mutate(SID = mapvalues(SID, participants$SID, participants$new)) %>%
+  mutate(wave = 2)
+# wave 2 trait - April 6-8, 2020
+covid_followup <- sprintf("%s/data/trait/followup_COVID_05.07.20.csv", data_path) %>% 
+  read_csv() %>%
+  filter(!row_number() %in% c(1,2) & !is.na(SID) & SID %in% participants$SID) %>%
+  select(SID, one_of(old_names)) %>%
+  mutate(SID = mapvalues(SID, participants$SID, participants$new)) %>%
+  mutate(wave = 3)
+
+save(baseline, covid_baseline, covid_followup, file = sprintf("%s/data/trait/cleaned_combined_2020-05-06.RData", data_path))
+```
+
+# Descriptives  
+
+## Demographics  
+```{r}
+dem_tab <- baseline %>%
+  select(SID:race) %>%
+  mutate(age = year(ymd_hms(StartDate)) - as.numeric(YOB),
+         StartDate = as.Date(ymd_hms(StartDate)),
+         race = factor(race, 0:3, c("White", "Black", "Asian", "Other"))) %>%
+  select(-YOB) 
+
+dem_tab %>% 
+  summarize(gender = sprintf("%.2f%%", sum(gender == "Female")/n()*100),
+            age = sprintf("%.2f (%.2f)", mean(age, na.rm = T), sd(age, na.rm = T)),
+            white = sprintf("%i (%.2f%%)"
+                            , sum(race == "White", na.rm = T)
+                            , sum(race == "White", na.rm = T)/n()*100),
+            black = sprintf("%i (%.2f%%)"
+                            , sum(race == "Black", na.rm = T)
+                            , sum(race == "Black", na.rm = T)/n()*100),
+            asian = sprintf("%i (%.2f%%)"
+                            , sum(race == "Asian", na.rm = T)
+                            , sum(race == "Asian", na.rm = T)/n()*100),
+            other = sprintf("%i (%.2f%%)"
+                            , sum(race == "Other", na.rm = T)
+                            , sum(race == "Other", na.rm = T)/n()*100),
+            StartDate = sprintf("%s (%s - %s)", median(StartDate), 
+                                min(StartDate), max(StartDate)))
+
+dem_tab %>%
+  kable(., "html"
+        , col.names = c("ID", "Start Date", "Gender", "Race/Ethnicity", "Age")
+        , align = rep("c", 5)
+        , caption = "<strong>Table S1</strong><br><em>Descriptive Statistics of Participants at Baseline<em>") %>%
+  kable_styling(full_width = F)
+```
+
+
+# Question 1: Cross-Wave Consistency  
+## ESM Data Setup  
+```{r esm data cleaning}
+missing_fun <- function(d){
+  first_day <- unique(d$StartDate)
+  hourBlock <- unique(d$`Hour Block 1`)
+  max_day <- max(d$Day); max_day <- ifelse(max_day < 14, 14, max_day)
+  d2 <- d %>% #mutate(StartDate = ifelse(is.na(StartDate), min(Date, na.rm = T), StartDate)) %>%
+    full_join(crossing(
+      Day = seq(0,max_day,1),
+      HourBlock = 1:6,
+      StartDate = first_day,
+      `Hour Block 1` = hourBlock)) %>%
+    arrange(Day, HourBlock) %>%
+    mutate(Date = StartDate + Day,
+           Hour = ifelse(is.na(Hour), `Hour Block 1` + (HourBlock-1)*4, Hour),
+           Minute = ifelse(is.na(Minute), "00", Minute))
+  d2$Date[d2$Hour > 23] <- d2$Date[d2$Hour > 23] + 1
+  d2$Hour[d2$Hour > 23] <- d2$Hour[d2$Hour > 23] - 24
+  d2 <- d2 %>% mutate(
+    Full_Date = sprintf("%s %s:%s", as.character(Date), Hour, Minute)) %>%
+    select(-`Hour Block 1`, -StartDate)
+}
+
+times <- BFI %>% 
+  select(SID, StartDate, Date, Hour, Minute, Day, `Hour Block 1`, HourBlock, wave) %>%
+  distinct() %>%
+  mutate(Minute = str_remove_all(Minute, ".csv"),
+         Minute = ifelse(as.numeric(Minute) < 10, sprintf("0%s", Minute), Minute)) %>%
+  arrange(wave, SID, Date) %>%
+  group_by(wave, SID) %>%
+  nest() %>%
+  ungroup() %>%
+  mutate(data = map(data, missing_fun)) %>%
+  unnest(data) %>%
+  arrange(wave, SID, Date, Hour) %>%
+  group_by(SID, wave) %>%
+  mutate(all_beeps = seq(1, n(), 1)) %>%
+  ungroup()
+
+intervals <- BFI %>%
+  filter(wave == 1) %>%
+  select(SID, w1 = StartDate) %>%
+  distinct() %>%
+  mutate(w2 = lubridate::ymd("2020-03-23")) %>%
+  mutate(interval = difftime(w2, w1),
+         interval = as.numeric(interval, units="weeks"))
+intervals
+  
+
+# join with codebook, reverse code, composite within facets and spread to wide format
+BFI.wide <- BFI %>% 
+  select(SID, Date, Hour, Minute, wave, item, value = responses2) %>%
+  mutate(Minute = str_remove_all(Minute, ".csv"),
+         Minute = ifelse(as.numeric(Minute) < 10, sprintf("0%s", Minute), Minute),
+         Full_Date = sprintf("%s %s:%s", as.character(Date), Hour, Minute)) %>%
+  left_join(esm_codebook %>% select(shrtFacet, item = Item, reverse)) %>%
+  mutate(value = as.numeric(value),
+         value = ifelse(!is.na(reverse), reverse.code(-1, value, mini = 1, maxi = 5), value)) %>%
+  select(-reverse) %>%
+  group_by(SID, wave, Full_Date, shrtFacet) %>%
+  summarize(value = mean(value, na.rm = T)) %>%
+  ungroup() %>%
+  spread(shrtFacet, value) %>%
+  full_join(times %>% select(SID, wave, Full_Date, all_beeps)) %>%
+  arrange(wave, SID, all_beeps) %>%
+  ungroup()
+
+BFI.wide
+```
+
+### Multiple Imputation  
+```{r mi}
+# short function for running MI
+mi_fun <- function(df){
+  df <- data.frame(unclass(df))
+  mi <- amelia(df, m = 1, ts = "all_beeps", cs = "SID")
+  mi$imputations[[1]]
+}
+
+set.seed(5)
+# run MI for each wave and unnest
+BFI.mi <- BFI.wide %>%
+  select(-Full_Date) %>%
+  group_by(wave) %>%
+  nest() %>%
+  ungroup() %>%
+  mutate(data = map(data, mi_fun)) %>%
+  unnest(data) %>%
+  full_join(times %>% select(SID, wave, Full_Date, all_beeps))
+BFI.mi
+```
+
+
+### Cubic Spline Interpolation  
+We will use cubin spline interpolation to account for missing intervals, overnight periods, and unequal intervals (e.g. Fisher et al., 2018). The code below was adapted from Reeve's and Fisher (2019) and retrieved from https://osf.io/gv37j/.   
+
+```{r cubic spline interpolation}
+## Define user-defined functions
+lagpad <- function(x, k) {
+  c(rep(NA, k), x)[1 : length(x)] 
+} 
+
+rep_fun <- function(x){if(sd(x) == 0){x[sample(1:length(x), length(x)/2)] <- jitter(unique(x))}; return(x)}
+
+detrend_fun <- function(d){
+  d <- d %>%
+    mutate(lag = lag(Full_Date),
+           lag_str = as.POSIXct(lag, "%Y-%m-%d %H:%M", tz = "America/Chicago"),
+           start_str = as.POSIXct(Full_Date, "%Y-%m-%d %H:%M", tz = "America/Chicago"),
+           day = as.numeric(difftime(as.Date(ymd_hm(Full_Date)), min(as.Date(ymd_hm(Full_Date))), units = "days"))+1, 
+           tdif = as.numeric(difftime(start_str, lag_str), units = "hours"),
+           tdif = ifelse(is.na(tdif), 0, tdif)) %>%
+    filter(tdif > 1) %>%
+    mutate(cumsumT = cumsum(tdif))
+}
+
+normlz_fun <- function(d){
+  final <- d %>%
+    gather(item, value, A_Cmpn:O_IntCur) %>%
+    group_by(day, item) %>%
+    mutate(dx = (value - lag(value))/tdif,
+           xp = 4*dx + lag(value),
+           value = ifelse(is.na(xp), value, xp)) %>%
+    select(-xp, -dx) %>%
+    spread(item, value)
+  final
+}
+
+all_na <- function(d){sum(apply(d, 2, function(x) sum(!is.na(x)) < 15)) == 0}
+# run the cubic spline interpolation
+BFI.csi <- BFI.mi %>%
+  filter(complete.cases(.)) %>%
+  arrange(wave, SID, all_beeps) %>%
+  group_by(SID, wave) %>%
+  filter(n() > 10) %>%
+  mutate_at(vars(A_Cmpn:O_IntCur), rep_fun) %>%
+  full_join(times %>% select(SID, wave, all_beeps, Full_Date)) %>%
+  arrange(wave, SID, all_beeps) %>%
+  nest() %>%
+  filter(map_lgl(data, all_na) & !SID == "45") %>%
+  group_by(SID) %>%
+  filter(n() == 2) %>%
+  ungroup() %>%
+  mutate(resid = map(data, detrend_fun), # add cumsumT
+         normlz = map(resid, normlz_fun)) %>% # normalize by time
+  pivot_longer(cols = c("data", "resid", "normlz"), names_to = "data_type", values_to = "data") %>%
+  unnest(data) %>%
+  arrange(SID, wave, all_beeps)
+BFI.csi
+```
+
+
+## GIMME  
+we estimated idiographic personality structure using the GIMME procedure, which is a data-driven procedure for estimating both group-level and idiographic relationships in time series data (Lane, Gates, Pike, Beltz, & Wright, 2019). As currently implemented in the gimme package (Lane, Gates, Molenaar, Hallquist, & Pike, 2016) in R, the procedure estimates a series of unified structural equation model (uSEM) for each person as well as a group-level model based on the individual-level models. uSEM uses an iterative procedure for retaining pathways in the model using Lagrange multiplier tests. The GIMME procedure begins by estimating the group-level pathways by estimating individual-level models and retaining group-level pathways for those paths were shared by 75% of participants. Starting with a null model, pathways are iteratively added to the group-level model when the largest proportion of individuals (above a chosen threshold, 75% by default) show a better model fit according to the Lagrange multiplier tests. This procedure is continued until no additional pathways improve fit above the threshold. Idiographic models are then built using a similar procedure, with the exception that each step of the Lagrange multiplier test is only based on the target individual (rather than the set of individual Lagrange multiplier tests). The iterative procedure continues for each person until the procedure indicates that no pathways improve model fit. For this procedure, each of the 15 personality imputed indicators were included as well as a cumulative time variable that was included as an exogenous variable (i.e. it can predict other indicators but not be predicted) to detrend the data. This procedure was repeated for each wave of ESM data.  
+
+Below, you see code to set up a number of different versions of the data that vary on three factors: (1) the number of indicators (15 v 9), (2) detrending (to correct for non-stationarity), and (3) time normalization (to control for unequal lags over time).  
+
+### Set Up Data    
+```{r Q1 gimme data}
+rep_fun <- function(x){if(sd(x, na.rm = T) == 0){x[sample(1:length(x), length(x)/2)] <- jitter(unique(x)[1])}; return(x)}
+# set up gimme data lists for running the models 
+gimme_nested <- BFI.csi %>%
+  filter(!is.na(wave)) %>%
+  select(-c(all_beeps:tdif)) %>%
+  group_by(data_type, SID, wave) %>%
+  nest() %>%
+  ungroup() %>% 
+  mutate(data = map2(data, data_type, function(x,y){if(y == "data"){x %>% select(-cumsumT)} else x})) %>%
+  group_by(data_type, wave) %>%
+  nest() %>%
+  ungroup() %>%
+  mutate(data_type = mapvalues(data_type, "data", "raw"))
+
+# create 9 item versions of the data for comparison to Beck & Jackson (2020)
+nine_items <- c("E_Scblty", "E_EnerLev", "A_Cmpn", "A_Rspct", "N_Depr", 
+                "N_Anxty", "N_EmoVol", "C_Prdctv", "C_Rspnbl")
+
+gimme_nested <- gimme_nested %>%
+  mutate(set = "9 items",
+         data = map(data, ~(.) %>% 
+            mutate(data = map(data, ~(.) %>% select(one_of(c(nine_items, "cumsumT"))))))) %>%
+  bind_rows(gimme_nested %>% mutate(set = "15 items"))
+
+# add an unresidualized normalized version of the data
+gimme_nested <- gimme_nested %>%
+  filter(data_type == "normlz") %>%
+  mutate(data = map(data, ~(.) 
+            %>% mutate(data = map(data, ~(.) %>% select(-cumsumT)))),
+         data_type = "rawNormlz") %>%
+  bind_rows(gimme_nested)
+gimme_nested
+```
+
+Below is an example of the group-level list-data that is fed to gimme. 
+```{r}
+gimme_nested$data[[1]]
+```
+
+And an example of unresidualized, 15-item normalized data for a single participant: 
+```{r}
+gimme_nested$data[[4]]$data[[1]]
+```
+
+And an example of residualized, 15-item raw data for a single participant:  
+```{r}
+gimme_nested$data[[12]]$data[[1]]
+```
+
+### Run Models  
+```{r run gimme, eval = F}
+# set up a function for running gimme models
+run_fun <- function(df, wave, type, set){
+  exo <- if(grepl("raw", type)) NULL else "cumsumT"
+  df <- df %>% mutate(data = map(data, ~(.) %>% filter(complete.cases(.))))
+  l <- df$data
+  names(l) <- df$SID
+  g <- gimme(data = l
+             , out = sprintf("%s/results/gimme/%s_w%s_%s", data_path, set, wave, type)
+             , sep = ","
+             , header = T
+             , exogenous = exo
+             , standardize = T)
+  # save(g, file = sprintf("%s/results/gimme/gimme_w%s_%s.RData", data_path, wave, type))
+  rm(g)
+  gc()
+}
+
+# create directories for all combinations to save results
+gimme_nested %>%
+  select(wave, data_type, set) %>%
+  mutate(pmap(list(wave, data_type, set), 
+    ~dir.create(sprintf("%s/results/gimme/%s_w%s_%s", data_path, ..3, ..1, ..2), recursive = T)))
+
+# run the gimme procedure for all combinations 
+plan(multiprocess(workers = 4L))
+gimme_nested %>% 
+  # filter(data_type == "rawNormlz") %>%
+  mutate(data = future_pmap(list(data, wave, data_type, set), run_fun))
+closeAllConnections()
+gc()
+```
+
+```{r pre gimme clean up, echo = F}
+rm(list = c("BFI", "BFI.csi", "BFI.mi", "BFI.wide"))
+```
+
+
+### Extract Results  
+
+The GIMME procedure resulted in an asymmetric, rectangular matrix of associations for each participant, where rows are outcome variables and columns are predictor variables. The number of rows is equal to the number of indicators, which, in the present paper, is 15, while the number of columns is equal to 2 x the number of indicators (30) because lagged predictors are also included in the model. Based on prior work (Beck & Jackson, 2020x), we will investigate the results as contemporaneous (within-time), lagged (across-time; all associations between current and previous time point indicators), and combined associations (a combination of both contemporaneous and lagged associations). In the simplest case, contemporaneous associations test whether observed levels of one indicators at time t track with the levels of another indicator measured at the same time point t, while lagged associations test whether levels of one indicator at time t track with previous time point (t – 1) levels of another indicator.  
+
+
+#### Raw Results Matrices  
+Below, we will extract these matrices for each participant, as well as for the group-level model. We will store these both as matrices as well as long-form data (i.e. an "edgelist") for easier later use.  
+
+```{r Q1 load gimme results, eval = F}
+# function ofr loading in idiographic estimates
+ind_load_fun <- function(wave, sid, type, set){
+  sprintf("%s/results/gimme/%s_w%s_%s/individual/%sBetas.csv", data_path, set, wave, type,  sid) %>% 
+    read_csv() %>%
+    rename(to = X1) #%>%
+    # gather(from, value, -to) %>%
+    # mutate(type = ifelse(grepl("lag", from) | grepl("lag", from), "Lagged", "Contemporaneous"))
+}
+
+# function for loading in group estimates
+group_load_fun <- function(wave, type, set){
+  sprintf("%s/results/gimme/%s_w%s_%s/indivPathEstimates.csv", data_path, set, wave, type) %>% 
+    read_csv() %>%
+    # mutate(type = ifelse(grepl("lag", lhs) | grepl("lag", rhs), "Lagged", "Contemporaneous")) %>%
+    filter(level == "group") %>%
+    select(SID = file, to = lhs, from = rhs, value = beta) %>% #, type) %>%
+    group_by(from, to) %>% #, type) %>%
+    summarize(value = mean(value, na.rm = T)) %>%
+    ungroup() %>%
+    pivot_wider(names_from = "from", values_from = "value")
+}
+
+# individual paths for gimme
+gimme_nested <- crossing(
+  wave = c(1, 2)
+  , data_type = c(
+    #"intervention_raw", "intervention_cubic", 
+    "raw", "resid", "normlz", "rawNormlz")
+  , set = c("9 items", "15 items")
+  ) %>% 
+  mutate(SID = pmap(list(wave, data_type, set),
+          ~list.files(
+            sprintf("%s/results/gimme/%s_w%s_%s/individual", data_path, ..3, ..1, ..2)
+            , pattern = "Betas.csv"
+            )
+          )
+        ) %>%
+  unnest(SID) %>%
+  mutate(SID = str_remove_all(SID, "Betas.csv")) %>%
+  mutate(gimme = pmap(list(wave, SID, data_type, set), ind_load_fun)) 
+gimme_nested
+
+# group paths for gimme
+gimme_group <- crossing(
+  wave = c(1, 2)
+  , data_type = c(#"intervention_raw", "intervention_cubic", 
+    "raw", "resid", "normlz", "rawNormlz")
+  , set = c("9 items", "15 items")
+  ) %>% 
+  mutate(gimme = pmap(list(wave, data_type, set), group_load_fun)) %>%
+  mutate(SID = "Group")
+gimme_group
+```
+
+Sample individual-level result (Normalized and residualized, 15 items, wave 1):  
+```{r}
+gimme_nested$gimme[[1]]
+```
+
+And group level (Normalized and residualized, 15 items, wave 1): 
+```{r}
+gimme_group$gimme[[1]]
+```
+
+### Reshape Results  
+```{r}
+nine_items <- c("E_Scblty", "E_EnerLev", "A_Cmpn", "A_Rspct", "C_Prdctv", 
+                "C_Rspnbl", "N_Depr", "N_Anxty", "N_EmoVol")
+
+# create matrix of lagged associations
+PDC_fun <- function(df, type, set){
+  if(is.null(df)){df <- data.frame(from = character(), to = character(), value = double())}
+  # keep only lagged associations
+  df <- df %>% select(to, contains("lag"), -contains("cumsumT")) %>% filter(to != "cumsumT")
+  colnames(df) <- str_remove_all(colnames(df), "lag")
+  return(df)
+}
+
+# create matrix of lagged associations
+combined_fun <- function(df, type, set){
+  if(is.null(df)){df <- data.frame(from = character(), to = character(), value = double())}
+  df <- df %>% select(-contains("cumsumT")) %>% filter(to != "cumsumT")
+  return(df)
+}
+
+# create matrix of contemporaneous associations
+PCC_fun <- function(df, type, set){
+  if(is.null(df)){df <- data.frame(from = character(), to = character(), value = double())}
+  # keep only non-lagged associations
+  df <- df %>% filter(to != "cumsumT") 
+  rn <- df$to
+  df <- df %>% select(-contains("lag"), -to, -contains("cumsumT")) 
+  df <- as.matrix(df)
+  rownames(df) <- rn
+  # symmetricize
+  PCC <- apply(simplify2array(list(df, t(df))), 1:2, mean)
+  diag(PCC) <- NA
+  PCC <- data.frame(PCC) %>% rownames_to_column("to")
+  return(PCC)
+}
+
+# change matrices to long form
+long_fun <- function(df){df %>% gather(key = from, value = value, -to, na.rm = T)}
+
+gimme_nested <- gimme_nested %>%
+  full_join(gimme_group) %>%
+  # filter(data_type == "rawNormlz") %>%
+  mutate(uSEM = pmap(list(gimme, data_type, set), combined_fun),
+         PDC = pmap(list(gimme, data_type, set), PDC_fun),
+         PCC = pmap(list(gimme, data_type, set), PCC_fun),
+         Combined = map(uSEM, long_fun),
+         Lagged = map(PDC, long_fun),
+         Contemporaneous = map(PCC, long_fun))
+```
+
+
+### Plots
+```{r Q1 network graphs, eval = F}
+edge_colors <- RColorBrewer::brewer.pal(8, "Purples")[c(2,4,6,8)]
+idio_plot_fun <- function(data, subject, wave, type, dt, set){
+  print(paste(subject, wave, type, dt, set))
+  n <- nrow(data); rn <- data$to
+  data <- data %>% select(-to); rownames(data) <- rn
+  b5_groups <- list(
+    A = which(grepl("A_", colnames(data))),
+    E = which(grepl("E_", colnames(data))),
+    C = which(grepl("C_", colnames(data))),
+    N = which(grepl("N_", colnames(data))),
+    O = which(grepl("O_", colnames(data)))
+    )
+  plot <- 
+    qgraph(
+      data
+      , layout = "spring"
+      , loop = .7
+      , node.width = 1.85
+      , edge.width = 1
+      , esize = 7
+      , title = sprintf("Wave %s: %s for S%s", wave, type, subject)
+      , label.font = 2
+      , repulsion = .8
+      , label.fill.vertical = 1
+      , label.fill.horizontal = 1
+      , edge.color = "black"
+      , groups = b5_groups
+      , color = rev(c("#FFFFB3", t(RColorBrewer::brewer.pal(9, "Purples")[seq(1,9,2)])))
+      , legend = F
+      , DoNotPlot = TRUE
+      , mar = c(4,4,4,4)
+      , asize = 5
+      )
+  #change lines to dashed
+  plot$graphAttributes$Edges$lty[plot$Edgelist$weight < 0] <- 2
+  #change line colors
+  plot$graphAttributes$Edges$color <-
+    ifelse(abs(plot$Edgelist$weight) <.1, edge_colors[1],
+    ifelse(abs(plot$Edgelist$weight) <.2, edge_colors[2], edge_colors[3]))
+  dark_colors <- c("#9E9AC8", "#807DBA", "#6A51A3", "#54278F", "#3F007D")
+  plot$graphAttributes$Nodes$label.color[plot$graphAttributes$Nodes$color %in% dark_colors] <- "white"
+  vars <- str_replace(colnames(data), "_", "\n")
+  #change variable names
+  plot$graphAttributes$Nodes$labels <- vars
+  return(plot)
+}
+
+gimme_nested <- gimme_nested %>%
+  # filter(data_type == "RawNormlz") %>%
+  mutate(#combined_plot = pmap(list(uSEM, SID, wave, "Combined"), idio_plot_fun),
+         lagged_plot = pmap(list(PDC, SID, wave, "Lagged", data_type, set), possibly(idio_plot_fun, NA_real_)),
+         contemp_plot = pmap(list(PCC, SID, wave, "Contemporaneous", data_type, set), idio_plot_fun)) %>% filter(!is.na(lagged_plot))
+save(gimme_nested, file = sprintf("%s/results/gimme_nested.RData", data_path))
+```
+
+```{r}
+load(sprintf("%s/results/gimme_nested.RData", data_path))
+change_layout_fun <- function(q, layout){
+  q$layout <- layout
+  return(q)
+}
+
+gimme_nested <- gimme_nested %>%
+  filter(wave == 1) %>%
+  mutate(layout = map(contemp_plot, ~.$layout)) %>%
+  select(SID, data_type, layout, set) %>%
+  full_join(gimme_nested %>% select(-contains("layout"))) %>%
+  mutate(lagged_plot_ml = map2(lagged_plot, layout, change_layout_fun),
+         contemp_plot_ml = map2(contemp_plot, layout, change_layout_fun))
+```
+
+```{r, eval = F}
+save_fun <- function(d, SID, dt, set){
+  pdf(file = sprintf("%s/results/networks/plots/%s_%s/%s.pdf"
+                     , data_path, set, dt, SID)
+      , width = 8
+      , height = 8)
+  par(mfrow = c(2,2))
+  plot(d$contemp_plot_ml[[1]])
+  plot(d$lagged_plot_ml[[1]])
+  plot(d$contemp_plot_ml[[2]])
+  plot(d$lagged_plot_ml[[2]])
+  dev.off()
+  gc()
+}
+
+gimme_nested %>%
+  arrange(data_type, SID, wave) %>%
+  group_by(SID, data_type, set) %>%
+  nest() %>%
+  ungroup() %>%
+  arrange(data_type, SID) %>%
+  mutate(pmap(list(data, SID, data_type, set), possibly(save_fun, NA_real_)))
+```
+
+## Cross-Wave Consistency  
+```{r Q1 profile correlations}
+# function  for calculating ipsative consistency and confidence intervals
+ipsative_fun <- function(w1, w2, rn) {
+  print(rn)
+  w1 <- w1 %>% select(-to); w2 <- w2 %>% select(-to)
+  rm <- cor.test(c(as.matrix(w1)), c(as.matrix(w2)), use = "pairwise")
+  tibble(r = rm$estimate[1], lower = rm$conf.int[1], upper = rm$conf.int[2])
+}
+
+ip_consis <- gimme_nested %>%
+  select(SID, wave, data_type, set, uSEM, PDC, PCC) %>%
+  pivot_longer(cols = uSEM:PCC, names_to = "type", values_to = "long") %>%
+  pivot_wider(names_from = "wave", values_from = "long", names_prefix = "W") %>%
+  filter(!map_lgl(W1, is.null) & !map_lgl(W2, is.null)) %>%
+  mutate(consistency = pmap(list(W1, W2, row_number()), possibly(ipsative_fun, NA_real_))) %>%
+  filter(!is.na(consistency))
+
+ip_consis <- ip_consis %>% 
+  select(SID, type, data_type, set, consistency) %>%
+  unnest(consistency) %>%
+  mutate(type = mapvalues(type, c("uSEM", "PDC", "PCC"), c("Combined", "Lagged", "Contemporaneous")))
+
+ip_consis %>%
+  filter(data_type == "rawNormlz" & set == "15 items") %>%
+  mutate(sig = ifelse(sign(lower) == sign(upper), "sig", "ns")) %>%
+  mutate_at(vars(r, lower, upper), ~sprintf("%.2f", .)) %>%
+  mutate(CI = sprintf("[%s, %s]", lower, upper)) %>%
+  mutate_at(vars(r, CI), ~ifelse(sig == "sig", sprintf("<strong>%s</strong>", .),.)) %>%
+  select(SID, type, r, CI) %>%
+  gather(est, value, r, CI) %>%
+  pivot_wider(names_from = c("type", "est"), names_sep = "_", values_from = "value") %>%
+  select(SID, Combined_r, Combined_CI, Contemporaneous_r, Contemporaneous_CI, Lagged_r,
+         Lagged_CI) %>%
+  kable(., "html", escape = F,
+        align = c("r", rep("c", 6)),
+        col.names = c("SID", rep(c("r", "CI"), times = 3))) %>%
+  kable_styling(full_width = F) %>%
+  add_header_above(c(" " = 1, "Combined" = 2, "Contemporaneous" = 2, "Lagged" = 2)) %>%
+  add_footnote(label = "Bold values indicate terms whose confidence intervals did not overlap with 0", notation = "none")
+```
+
+#### Ipsative Consistency Plot (Figure 1)  
+```{r}
+ip_consis %>%
+  # filter(grepl("intervention", data_type) | data_type %in% c("raw_raw", "raw_cubic")) %>%
+  filter(SID != "Group") %>%
+  group_by(data_type, type, set) %>%
+  mutate_at(vars(r), lst(mean, sd), na.rm = T) %>%
+  mutate(msd = sprintf("M=%.2f\nSD=%.2f", mean, sd)) %>%
+  ggplot(aes(x = r)) + 
+  geom_histogram(aes(y = ..density..), color = "black", fill = "lightgray") + 
+  geom_density(aes(fill = type), alpha = .25) +
+  geom_vline(aes(xintercept = 0), linetype =  "dashed") +
+  geom_point(aes(x = mean, y = 0), size = 3) +
+  geom_text(aes(x = .5, y = 5, label = msd)) +
+  facet_grid(data_type ~ set + type) +
+  theme_classic() +
+  theme(legend.position = "none")
+
+ip_consis %>%
+  filter(data_type == "raw" & set == "15 items" & SID != "Group" & type != "Combined") %>%
+  group_by(data_type, type) %>%
+  mutate_at(vars(r), lst(mean, sd), na.rm = T) %>%
+  mutate(msd = sprintf("M=%.2f\nSD=%.2f", mean, sd)) %>%
+  ggplot(aes(x = r)) + 
+    scale_x_continuous(limits = c(-.45, 1.05), breaks = seq(-.25,1.,.25)) +
+    geom_histogram(aes(y = ..density..), color = "black", fill = "lightgray") + 
+    geom_density(aes(fill = type), alpha = .25) +
+    geom_vline(aes(xintercept = 0), linetype =  "dashed") +
+    geom_point(aes(x = mean, y = 0), size = 3) +
+    geom_text(aes(x = 1, y = 3.8, label = msd), hjust = 1) +
+    labs(x = "Ipsative Correlation"
+         , y = "Density") +
+    facet_grid( ~ type) +
+    theme_classic() +
+    theme(legend.position = "none"
+          , strip.background = element_blank()
+          , strip.text = element_text(face = "bold")
+          , axis.text = element_text(color = "black")
+          , panel.background = element_rect(color = "black"))
+ggsave(sprintf("%s/results/consistency/plots/fig_1_ip_cons.png", data_path)
+       , width = 5
+       , height = 3)
+
+ip_consis %>%
+  filter(SID != "Group" & type != "Combined") %>%
+  mutate(r = fisherz(r)) %>%
+  group_by(type, data_type, set) %>%
+  summarize_at(vars(r), lst(mean, sd, median, min, max), na.rm = T) %>%
+  mutate_at(vars(-type,-set, -data_type), ~round(., 3)) %>%
+  arrange(set, data_type, type)
+```
+
+### Consistent Participant Graphs (Figure 2)  
+```{r}
+pdf(sprintf("%s/results/consistency/plots/fig_2_consis_pax.pdf", data_path)
+    , width = 6
+    , height = 6)#9)
+# par(mfrow = c(3,2))
+par(mfrow = c(2,2))
+## participant 13: most positive and consistent 
+plot((gimme_nested %>% filter(SID == "33" & data_type == "raw" & set == "15 items"))$contemp_plot_ml[[1]])
+plot((gimme_nested %>% filter(SID == "33" & data_type == "raw" & set == "15 items"))$contemp_plot_ml[[2]])
+
+## participant 31: most positive and consistent 
+plot((gimme_nested %>% filter(SID == "07" & data_type == "raw" & set == "15 items"))$contemp_plot_ml[[1]])
+plot((gimme_nested %>% filter(SID == "07" & data_type == "raw" & set == "15 items"))$contemp_plot_ml[[2]])
+# 
+# ## participant 13: most neagtive and consistent 
+# plot((gimme_nested %>% filter(SID == "19" & data_type == "raw" & set == "15 items"))$contemp_plot_ml[[1]])
+# plot((gimme_nested %>% filter(SID == "19" & data_type == "raw" & set == "15 items"))$contemp_plot_ml[[2]])
+dev.off()
+```
+
+```{r, echo = F}
+rm(list = c("gimme_nested"))
+```
+
+
+# Question 2: Antecedents of Consistency  
+## Clean Trait Data    
+```{r combine trait}
+load(sprintf("%s/data/trait/cleaned_combined_2020-05-06.RData", data_path))
+old_names <- (trait_codebook %>% filter(Category %in% c("Predictors")))$`New #`
+trait_data <- baseline %>% select(SID, wave, one_of(old_names)) %>%
+  full_join(covid_baseline %>% select(SID, wave, one_of(old_names))) %>%
+  full_join(covid_followup %>% select(SID, wave, one_of(old_names))) %>%
+  gather(item,value, -SID, -wave, na.rm = T) %>%
+  left_join(trait_codebook %>% select(item = `New #`, Inventory, Trait, Facet, Reverse, Mini, Maxi)) %>%
+  mutate(value = as.numeric(value), 
+         value = ifelse(Reverse == -1 & !is.na(Reverse), 
+            reverse.code(-1, value, mini = Mini, maxi = Maxi), value)) %>%
+  select(-Reverse, -Mini, -Maxi) %>%
+  group_by(SID, wave, Inventory, Trait, Facet, item) %>%
+  summarize(value = mean(value)) %>%
+  ungroup()
+```
+
+### Alphas  
+```{r alphas}
+alpha_fun <- function(d){
+  d <- d %>% select(SID, Facet, value) %>% distinct() %>% spread(Facet, value) %>% select(-SID)
+  a <- psych::alpha(d)
+}
+
+alphas <- trait_data %>%
+  filter(!Inventory %in% c("Goals", "Satisfaction", "COVID")) %>%
+  group_by(Inventory, wave, Trait) %>%
+  nest() %>% 
+  ungroup() %>%
+  mutate(alpha_obj = map(data, alpha_fun),
+         alpha = map_dbl(alpha_obj, function(x) x$total[1,"raw_alpha"])) 
+```
+
+### Composites  
+```{r trait composites}
+trait_comp <- trait_data %>%
+  group_by(SID, wave, Inventory, Trait) %>%
+  summarize(value = mean(value)) %>%
+  ungroup()
+```
+
+### COVID-19 Text Data  
+```{r covid qual}
+## pull out text data
+old_names <- (trait_codebook %>% filter(Inventory == "COVID Behavior Change"))$`New #`
+covid_text <- covid_followup %>% 
+  select(SID, wave, one_of(old_names)) %>%
+  gather(item, Text, -SID, -wave) %>%
+  left_join(trait_codebook %>% select(item = `New #`, Inventory, Trait, Facet, Reverse, Mini, Maxi, `Modified Item`)) %>%
+  filter(Inventory == "COVID Behavior Change")
+
+# data(stop_words)
+
+## get data ready for analysis
+reg <- "([^A-Za-z\\d#@]|'(?![A-Za-z\\d#@]))"
+covid_words <- covid_text %>%
+  filter(!str_detect(Text, '^"')) %>%
+  mutate(Text = str_replace_all(Text, "https://t.co/[A-Za-z\\d]+|&amp;", "")) %>%
+  unnest_tokens(word, Text, token = "regex", pattern = reg) %>%
+  # anti_join(stop_words) %>%
+  filter(#!word %in% stop_words$word,
+         str_detect(word, "[A-Z a-z]"))
+write_csv(covid_words, path = sprintf("%s/data/trait/covid_words.csv", data_path))
+
+## quick sentiment analysis
+covid_sentiments <- covid_words %>%
+  inner_join(get_sentiments())
+```
+
+```{r}
+## how much did participants say
+covid_words %>% 
+  count(SID, item, sort = T)  %>%
+  group_by(SID) %>%
+  summarize(n = mean(n)) %>%
+  ungroup() %>% 
+  summarize_at(vars(n), lst(mean, min, max, median))
+## not a lot of overlap in words
+covid_words %>% count(word, sort = T)
+
+## not a lot of sentiments matched up
+covid_sentiments %>% count(sentiment, SID, sort = T)
+```
+
+Based on this, I did hand coding of the words participants used so words would match up for more useful summaries.  
+```{r}
+covid_words_coded <- sprintf("%s/data/trait/covid_words_coded.csv", data_path) %>%
+  read_csv()
+
+## recoded word frequency 
+covid_words_coded %>% 
+  count(word, sort = T) %>%
+  filter(n > 1) %>%
+  kable(., "html"
+        , caption = "Frequency of Words Used At Least Twice in Free Response Questions about COVID-19"
+        , col.names = c("Word", "Frequency")
+        , align = c("r", "c")) %>%
+  kable_styling(full_width = F) %>%
+  add_footnote(str_wrap('Note. Answers were in response to two questions: "What do you do now that did not do before COVID-19?" and "Which of your current behaviors are most different from your behaviors pre-COVID-19?"',45), notation = "none")
+
+## coded category frequency 
+covid_words_coded %>% 
+  count(category, sort = T) %>%
+  filter(!is.na(category) & n > 1) %>%
+  kable(., "html"
+        , caption = "Frequency of Coded Categories Recorded At Least Twice in Free Response Questions about COVID-19"
+        , col.names = c("Word", "Frequency")
+        , align = c("r", "c")) %>%
+  kable_styling(full_width = F) %>%
+  add_footnote(str_wrap('Note. Answers were in response to two questions: "What do you do now that did not do before COVID-19?" and "Which of your current behaviors are most different from your behaviors pre-COVID-19?"',45), notation = "none")
+
+covid_words_coded %>% 
+  count(category, SID) %>%
+  filter(!is.na(category) & n > 1) %>%
+  arrange(SID, n)
+```
+
+### Descriptives  
+#### Antecedents and Consequences  
+```{r trait descriptives}
+tab3 <- trait_comp %>%
+  group_by(wave, Inventory, Trait) %>%
+  summarize_at(vars(value), lst(mean, sd, min, max)) %>%
+  ungroup() %>%
+  full_join(alphas %>% select(wave:Trait, alpha)) %>%
+  mutate(msd = sprintf("%.2f (%.2f)", mean, sd),
+         range = sprintf("%.2f-%.2f", min, max)) %>%
+  select(-(mean:max)) %>%
+  pivot_wider(names_from = "wave"
+              , values_from = c("msd", "range", "alpha")
+              , names_sep = "_") %>% 
+  select(Trait, contains("_1"), contains("_2"), contains("_3")) %>%
+  kable(.
+        , "html"
+        , digits = 2
+        , escape = F
+        , col.names = c("Trait", rep(c("M (SD)", "Range", eval("\\alpha")), times = 3))
+        , caption = "<strong>Table 3</strong><br><em>Descriptive Statistics of Trait-Level Characteristics Across Waves") %>%
+  kable_styling(full_width = F) %>%
+  add_header_above(c(" " =  1, "Wave 1" = 3, "Wave 2" = 3, "Wave 3" = 3))
+tab3
+save_kable(tab3, file = sprintf("%s/results/descriptives/table_3_trait_desc.html", data_path))
+```
+
+#### COVID-19 Related  
+```{r combine trait}
+old_names <- (trait_codebook %>% filter(Category == "Descriptives"))$`New #`
+covid_data <- covid_followup %>% select(SID, wave, one_of(old_names)) %>%
+  gather(item,value, -SID, -wave, na.rm = T) %>%
+  left_join(trait_codebook %>% select(item = `New #`, Inventory, Trait, Facet, Reverse, Mini, Maxi, `Modified Item`)) %>%
+  filter(Inventory != "COVID Behavior Change") %>%
+  mutate(value = as.numeric(value), 
+         value = ifelse(Reverse == -1 & !is.na(Reverse), 
+            reverse.code(-1, value, mini = Mini, maxi = Maxi), value)) %>%
+  select(-Reverse, -Mini, -Maxi) %>%
+  group_by(SID, wave, Inventory, Trait, Facet, item, `Modified Item`) %>%
+  summarize(value = mean(value)) %>%
+  ungroup()
+
+yesno <- (trait_codebook %>% filter(Category == "Descriptives" & Scale == "0 = No, 1 = Yes"))$`New #`
+
+tab1 <- covid_data %>%
+  filter(item %in% yesno) %>%
+  mutate(value = factor(value, 0:1, c("No", "Yes"))) %>%
+  group_by(Inventory, `Modified Item`, value) %>%
+  tally() %>%
+  ungroup() %>%
+  spread(value, n) 
+
+rs <- tab1 %>% group_by(Inventory) %>% tally() %>% 
+    mutate(end = cumsum(n), start = lag(end) + 1, start = ifelse(is.na(start), 1, start))
+tab1 <- tab1 %>% 
+  select(-Inventory) %>%
+  kable(.
+        , "html"
+        , escape = F
+        , col.names = c("Item Text", "# No", "# Yes")
+        , caption = "<strong>Table 1</strong><br><em>Frequencies of COVID-19-Related Experiences and Pre-Existing Conditions"
+  ) %>%
+  kable_styling(full_width = F) %>%
+  kableExtra::group_rows("COVID-19 Behaviors",      rs$start[1], rs$end[1]) %>%
+  kableExtra::group_rows("COVID-19 Employment",     rs$start[2], rs$end[2]) %>%
+  kableExtra::group_rows("COVID-19 Symptoms",       rs$start[3], rs$end[3]) %>%
+  kableExtra::group_rows("COVID-19 Treatments",     rs$start[4], rs$end[4]) %>%
+  kableExtra::group_rows("Pre-existing Conditions", rs$start[5], rs$end[5]) 
+tab1
+
+save_kable(tab1, file = sprintf("%s/results/descriptives/table_1_covid_yesno.html", data_path))
+
+cols <- c("COVID SIP", "Social Contact", "Pre COVID", "Post COVID", "COVID Comparison", 
+          "COVID Conversations", "COVID Worries")
+tab2 <- covid_data %>%
+  filter(!item %in% yesno &  !Facet == "covidPos") %>%
+  group_by(Inventory, `Modified Item`) %>%
+  summarize_at(vars(value), lst(mean, sd, min, max)) %>%
+  ungroup() %>%
+  mutate(Inventory = factor(Inventory, levels = cols)) %>%
+  arrange(Inventory) 
+rs <- tab2 %>% group_by(Inventory) %>% tally() %>% 
+    mutate(end = cumsum(n), start = lag(end) + 1, start = ifelse(is.na(start), 1, start))
+tab2 <- tab2 %>% 
+  select(-Inventory) %>%
+  kable(.
+        , "html"
+        , col.names = c("Item Text", "M", "SD", "Min", "Max")
+        , escape = F
+        , digits = 2
+        , caption = "<strong>Table 2</strong><br><em>Descriptives of COVID-19-Social Contact"
+        ) %>%
+  kable_styling(full_width = F) %>%
+  kableExtra::group_rows("COVID Home Isolation", rs$start[1], rs$end[1]) %>%
+  kableExtra::group_rows(rs$Inventory[2], rs$start[2], rs$end[2]) %>%
+  kableExtra::group_rows("Prior to COVID-19, how often did you...", rs$start[3], rs$end[3]) %>%
+  kableExtra::group_rows("Following COVID-19, how often did you...", rs$start[4], rs$end[4]) %>%
+  kableExtra::group_rows("Relative to before COVID-19, how often do you...", rs$start[5], rs$end[5]) %>%
+  kableExtra::group_rows(rs$Inventory[6], rs$start[6], rs$end[6]) %>%
+  kableExtra::group_rows(rs$Inventory[7], rs$start[7], rs$end[7]) %>%
+  add_footnote("Note. Social Contact items were answered with integers. The scale for pre- and post-COVID-19 social experiences and for COVID Conversationswas: 0 = Never, 1 = Once a month, 2 = A few times a month, 3 = Once a week, 4 = 2-3 times week, 5 = 4-6 times a week, 6 = every day. The scale for comparing changes was: 1 = Much less often, 2 = Slightly less often, 3 = No change, 4 = Slightly more often, 5 = Much more often. The scale for COVID Worries was 1 = Not at all, 2 = Slightly, 3 = Moderately, 4 = Extremely.", notation = "none") 
+tab2
+
+save_kable(tab2, file = sprintf("%s/results/descriptives/table_2_covid_social.html", data_path))
+```
+
+### Correlations  
+```{r trait correlations}
+cor_fun <- function(d, wave){
+  r <- d %>% 
+    pivot_wider(names_from = c("Inventory", "Trait")
+                , values_from = "value"
+                , names_sep = "_") %>%
+    select(-SID) %>%
+    cor(., use = "pairwise")
+  r <- apply(r, 2, function(x) str_replace_all(str_remove_all(sprintf("%.2f", x), "^0"), "^-0", "-"))
+  rownames(r) <- colnames(r)
+  
+  r[upper.tri(r, diag = F)] <- NA
+  diag(r) <- "--"
+  tab <- r %>% data.frame() %>%
+    rownames_to_column("Var1") %>%
+    pivot_longer(cols = -Var1, names_to = "Var2", values_to = "r") %>%
+    separate(Var1, c("Cat1", "Var1"), sep = "_") %>%
+    separate(Var2, c("Cat2", "Var2"), sep = "_") %>%
+    select(-Cat2) %>%
+    pivot_wider(values_from = "r", names_from = "Var2") %>%
+    mutate(Var1 = paste(1:n(), ".", Var1, sep = "")) %>%
+    setNames(c("Cat1", "Term", seq(1, ncol(.)-2)))
+  
+  rs <- tab %>% group_by(Cat1) %>% tally() %>% 
+    mutate(end = cumsum(n), start = lag(end) + 1, start = ifelse(is.na(start), 1, start))
+  cs <- rs$n; names(cs) <- rs$Cat1
+  k_tab <- tab %>% 
+    mutate(Term = str_remove_all(Term, "Satisfaction with ")) %>%
+    select(-Cat1) %>%
+    kable(.
+          , "html"
+          , escape = F
+          , align = c("r", rep("c", ncol(tab)-1))
+          , caption = sprintf("Correlations Among Study Variables in Wave %i", wave)) %>%
+    kable_styling(full_width = F) %>%
+    kableExtra::group_rows(rs$Cat1[1], rs$start[1], rs$end[1]) %>%
+    kableExtra::group_rows(rs$Cat1[2], rs$start[2], rs$end[2]) %>%
+    kableExtra::group_rows(rs$Cat1[3], rs$start[3], rs$end[3]) %>%
+    kableExtra::group_rows(rs$Cat1[4], rs$start[4], rs$end[4]) %>%
+    kableExtra::group_rows(rs$Cat1[5], rs$start[5], rs$end[5]) %>%
+    kableExtra::group_rows(rs$Cat1[6], rs$start[6], rs$end[6]) %>%
+    kableExtra::group_rows(rs$Cat1[7], rs$start[7], rs$end[7]) %>%
+    kableExtra::group_rows(rs$Cat1[8], rs$start[8], rs$end[8]) %>%
+    kableExtra::group_rows(rs$Cat1[9], rs$start[9], rs$end[9]) %>%
+    add_header_above(c(" " = 1, cs))
+}
+
+
+trait_cor <- trait_comp %>%
+  group_by(wave) %>%
+  nest() %>%
+  ungroup() %>%
+  mutate(cor = map2(data, wave, cor_fun))
+
+trait_cor$cor
+```
+
+
+## Run Models  
+```{r q2 data setup}
+cols <- c("prevMnyProb", "curMnyProb", "covidWryPast", "covidWryPres")
+covid_change <- covid_data %>% 
+  filter(Inventory %in% c("Pre COVID", "Post COVID") | 
+         Facet %in% cols) %>%
+  mutate(Inventory = mapvalues(Inventory, c("Pre COVID", "Post COVID"), c(1,2)),
+         Facet = mapvalues(Facet, cols, c(1,2,1,2)),
+         wave = ifelse(Inventory %in% c(1,2), Inventory, Facet)) %>%
+  select(SID, wave, value, Trait) %>%
+  pivot_wider(names_from = "wave", values_from = "value", names_prefix = "W") %>%
+  mutate(Inventory = "COVID Changes")
+
+q2_nested <- trait_comp %>% 
+  filter(wave != 3) %>% 
+  pivot_wider(names_from = "wave", values_from = "value", names_prefix = "W") %>%
+  full_join(covid_change) %>%
+  full_join(ip_consis %>% select(SID, data_type, set, type, r)) %>%
+  filter(complete.cases(.)) %>% 
+  left_join(intervals %>% select(SID, interval)) %>%
+  mutate(r = fisherz(r)) %>%
+  arrange(Inventory) %>%
+  # filter(!complete.cases(.)) %>% View  %>%
+  group_by(Inventory, Trait, data_type, set, type) %>%
+  nest() %>%
+  ungroup()
+```
+
+```{r q2 mods, eval = F}
+# setup function
+# first creates the three nested models
+# and gets tidy estimates
+# then does model comparisons
+# and returns the results 
+setup_fun <- function(df, m){
+  mods <- tibble(model = c(
+    "interval",
+    "W1 + interval", 
+    "W1 + W2 + interval", 
+    "W1*W2 + interval"),
+    model_num = seq(4,1,-1),
+    ) %>% mutate(mod = map(model, mod_fun, m = m, df = df)) %>% 
+    arrange(model_num)
+  mods <- mods %>% 
+    mutate(mod = map(mod, ~add_criterion(., criterion = c("loo", "waic"))),
+           tidy = map(mod, tidy_brms),
+           loo = map(mod, loo::loo), 
+           waic = map_dbl(mod, ~loo::waic(.)$estimates["elpd_waic", 1])) 
+  
+  mods <- mods %>% bind_cols(tibble(
+    stacking_wt = loo_model_weights(mods$loo, method = "stacking"),
+    pbma_bb_wt = loo_model_weights(mods$loo, method = "pseudobma"),
+    pbma_wt = loo_model_weights(mods$loo, method = "pseudobma", BB = F),
+    waic_wt = exp(mods$waic)/sum(exp(mods$waic))
+    ))
+  return(mods)
+}
+
+# takes the model input and runs each model
+# adds the loo and waic
+# saves the model to a file in case we need it later but
+# run up against ram
+mod_fun <- function(terms, df, m){
+  f <- formula(paste("r", terms, sep = " ~ "))
+  m2 <- update(m, formula = f, newdata = df)
+  return(m2)
+}
+
+# to avoid compilation issues and slowdown, run a smaller, 
+# basic model for later use by the update() function
+m <- brm(r ~ interval
+           , data = q2_nested$data[[1]]
+           , warmup = 1000
+           , iter = 2000
+           )
+
+# get estimates and lower and upper bounds as a data frame
+tidy_brms <- function(mod){
+  fixef(mod, probs = c(.055, .945)) %>%
+    data.frame() %>%
+    rownames_to_column("term")
+}
+
+# run the model and summary functions and save
+q2_nested <- q2_nested %>%
+  mutate(data = ifelse(Trait == "COVID Employment", 
+            map(data, ~(.) %>% mutate_at(vars(W1, W2), factor)), data),
+         m = map(data, setup_fun, m))
+ save(q2_nested, file = sprintf("%s/results/antecedents/results.RData", data_path))
+
+# remove the models because they take up lots of storage and we've got 
+# the important parts stored elsewhere
+q2_nested <- q2_nested %>%
+  mutate(m = map(m, ~(.) %>% select(-mod))) %>%
+  select(-data) 
+save(q2_nested, file = sprintf("%s/results/antecedents/results_small.RData", data_path))
+```
+
+## Tables  
+### Information Criterion
+```{r q2 IC tabs}
+load(sprintf("%s/results/antecedents/results_small.RData", data_path))
+q2_comp_fun <- function(d, dt, set){
+  dt2 <- mapvalues(dt, c("normlz", "resid", "raw", "rawNormlz"), c("Residualized Time Normalized", "Detrended", "Raw", "Raw Time Normalized"))
+  tab <- d %>%
+    kable(.,
+        "html"
+        , escape = F
+        , col.names = c("Trait", "model", 
+            rep(c("Stacking", "PBMA", "WAIC"), times = 2))
+        , align = c("r", "r", rep("c", 6))
+        , caption = sprintf("<strong>Table X</strong><br><em>Pseudo BMA and WAIC Weight Estimates from Model Tests of Antecedents of Consistency for %s Data with %s", dt2, set))  %>%
+  kable_styling(full_width = F) %>%
+  add_header_above(c(" " = 2, "Contemporaneous" = 3, "Lagged" = 3)) %>%
+  collapse_rows(1, valign = "top") %>%
+  add_footnote("Bold values indicate the model that had the highest weight of the 4 tested models.")
+  
+  save_kable(tab, file = sprintf("%s/results/antecedents/tables/loowaic/%s_%s.html"
+                                 , data_path, dt, set))
+  return(tab)
+}
+
+# creates tables of the information criterion for model comparison 
+# loo, waic, pbma and put into tables saved as html
+q2_comp_tab <- q2_nested %>% 
+  # filter(data_type == "normlz" & set == "15 items") %>%
+  unnest(m) %>% 
+  select(-tidy, -loo) %>%
+  filter(type != "Combined") %>%
+  select(Trait, type, data_type, set, model, model_num, contains("_wt")) %>%
+  select(-contains("pbma_bb")) %>%
+  pivot_wider(names_from = "type"
+              , values_from = contains("_wt")
+              , names_sep = "_") %>%
+  group_by(Trait, data_type, set) %>%
+  mutate_at(vars(contains("_wt")), ~ifelse(. == max(.)
+      , sprintf("<strong>%.2f</strong>", .), sprintf("%.2f", .))) %>%
+  ungroup() %>%
+  select(Trait, model, data_type, set, contains("Contemp"), contains("Lagged")) %>%
+  group_by(data_type, set) %>%
+  nest() %>%
+  ungroup() %>%
+  mutate(tab = pmap(list(data, data_type, set), q2_comp_fun))
+```
+
+### Model Terms Summary  
+```{r q2 mod tabs}
+q2_tab_fun <- function(d, dt, set){
+  dt2 <- mapvalues(dt, c("normlz", "resid", "raw", "rawNormlz"), c("Time Normalized and Detrended", "Detrended", "Raw", "Time Normalized"))
+  d <- d %>% 
+    mutate(Inventory = factor(Inventory, levels = unique(d$Inventory, fromLast = T)))
+  span1 <- c(" " = 1, rep(c("Interval" = 1, "W1" = 1, "W2" = 1, "W1 x W2" = 1),2))
+  span2 <- c(" " = 1, "Contemporaneous" = 4, "Lagged" = 4)
+  gr <- d %>%
+    group_by(Inventory) %>% tally() %>% ungroup() %>% 
+    arrange(Inventory) %>%
+    mutate(end = cumsum(n), start = lag(end) + 1, start = ifelse(is.na(start), 1, start))
+  tab <- d %>% 
+    arrange(Inventory) %>%
+    select(-Inventory) %>%
+    mutate(Trait = str_remove_all(Trait, "Satisfaction with "),
+           Trait = str_remove_all(Trait, " Goals"),
+           Trait = str_remove_all(Trait, "Goals to "),
+           Trait = str_to_title(Trait)) %>%
+    kable(.,
+          "html"
+          , digits = 2
+          , escape = F
+          , col.names = c("Antecedent", 
+              rep("b [CI]", times = 8))
+          , align = c( "r", rep("c", 8))
+          , caption = sprintf("<strong>Table 4</strong><br><em>Parameter Estimates of Target Terms for Models Estimating Ipsative Consistency from Antecedents for %s Data with %s", dt2, set))  %>%
+    kable_styling(full_width = F) %>%
+    add_header_above(span1) %>%
+    add_header_above(span2) %>%
+    kableExtra::group_rows(gr$Inventory[1], gr$start[1], gr$end[1]) %>%
+    kableExtra::group_rows(gr$Inventory[2], gr$start[2], gr$end[2]) %>%
+    kableExtra::group_rows(gr$Inventory[3], gr$start[3], gr$end[3]) %>%
+    kableExtra::group_rows(gr$Inventory[4], gr$start[4], gr$end[4]) %>%
+    kableExtra::group_rows(gr$Inventory[5], gr$start[5], gr$end[5]) %>%
+    kableExtra::group_rows(gr$Inventory[6], gr$start[6], gr$end[6]) %>%
+    kableExtra::group_rows(gr$Inventory[7], gr$start[7], gr$end[7]) %>%
+    kableExtra::group_rows(gr$Inventory[8], gr$start[8], gr$end[8]) %>%
+    kableExtra::group_rows(gr$Inventory[9], gr$start[9], gr$end[9]) %>%
+    kableExtra::group_rows(gr$Inventory[10], gr$start[10], gr$end[10]) %>%
+    footnote(general = "Each column of estimates represents a separate model. Interval refers to the simple regressive association between the prediction interveral and consistency. W1 refers to the association between wave 1 scores on each characteristic and consistency, controlling for prediction interval. W2 refers to the association between wave 2 scores on each characteristic and consistency, controlling for W1 scores and the prediction interval. W1 x W2 refers to the the association between change in scores of each chracteristic and consistency, controlling for W1 and W2 scores as well as the prediction interval.")
+save_kable(tab, sprintf("%s/results/antecedents/tables/modelest/%s_%s.html", data_path, dt, set))
+tab
+}
+
+q2_sig <- q2_nested %>% 
+  filter(data_type == "raw" & set == "15 items") %>%
+  unnest(m) %>% 
+  select(-tidy, -loo) %>%
+  filter(type != "Combined") %>%
+  select(Trait, type, model, model_num, contains("_wt")) %>%
+  group_by(Trait, type) %>%
+  mutate_at(vars(contains("_wt")), ~ifelse(. >= max(.), 1, 0)) %>%
+  group_by(Trait, type, model, model_num) %>%
+  mutate(sig_wt = rowSums(cbind(stacking_wt, pbma_wt, waic_wt)),
+         sig_wt = ifelse(sig_wt >= 2, "sig", "ns")) %>%
+  ungroup() %>%
+  select(-(stacking_wt:waic_wt))
+
+q2_res <- q2_nested %>% 
+  unnest(m) %>%
+  select(Inventory:tidy) %>%
+  unnest(tidy) %>%
+  filter((model_num == 1 & term == "W1:W2") | 
+         (model_num == 2 & term == "W2") | 
+         (model_num == 3 & term == "W1") |
+         (model_num == 4 & term == "interval")) %>% 
+  mutate(sig = ifelse(sign(Q5.5) == sign(Q94.5), "sig", "ns")) %>%
+  filter(type != "Combined")
+
+levs <- paste(rep(c("Contemporaneous", "Lagged"), each = 4), 
+              c("interval", "W1", "W2", "W1:W2"), sep = "_")
+q2_res_tab <- q2_res %>%
+  full_join(q2_sig) %>%
+  mutate_at(vars(Estimate, Q5.5, Q94.5), ~sprintf("%.2f", .)) %>%
+  mutate(Estimate = sprintf("%s<br>[%s, %s]", Estimate, Q5.5, Q94.5)) %>%
+  mutate_at(vars(Estimate), ~ifelse(sig == "sig", sprintf("<strong>%s<strong>", .), .)) %>%
+  select(Inventory, Trait, type, set, data_type, term, b = Estimate) %>%
+  pivot_wider(names_from = c("type", "term")
+              , values_from = "b"
+              , names_sep = "_") %>%
+  select(Trait, Inventory, set, data_type, one_of(levs)) %>%
+  group_by(data_type, set) %>%
+  nest() %>% 
+  ungroup() %>%
+  mutate(tab = pmap(list(data, data_type, set), q2_tab_fun))
+```
+
+
+```{r}
+q2_res_tab$tab[[3]]
+```
+
+```{r, echo = F}
+rm(list = ls()[grepl("q2", ls())])
+```
+
+# Question 3: Consequences of Consistency  
+
+## Run Models  
+```{r q3 mods, eval = F}
+cols <- c("COVID Behaviors", "Social Contact", "COVID Conversations", "COVID SIP")
+q3_covid_conseq <- covid_data %>% 
+  filter(Inventory %in% cols) %>%
+  select(SID, wave, value, Inventory, Trait = Facet) 
+q3_covid_conseq <- q3_covid_conseq %>%
+  filter(Inventory == "COVID Behaviors") %>%
+  group_by(SID, wave, Inventory) %>%
+  summarise(value = sum(value, na.rm = T),
+            Trait = "COVID Behaviors") %>%
+  ungroup() %>%
+  right_join(q3_covid_conseq) 
+  
+
+q3_nested <- trait_comp %>% 
+  filter(wave %in% c(1,3)) %>% 
+  full_join(q3_covid_conseq) %>%
+  pivot_wider(names_from = "wave", values_from = "value", names_prefix = "W") %>%
+  right_join(ip_consis) %>%
+  left_join(intervals %>% select(SID, interval)) %>%
+  mutate(r = fisherz(r)) %>%
+  rename(consistency = r) %>%
+  group_by(Inventory, Trait, type, set, data_type) %>%
+  nest() %>%
+  ungroup() %>%
+  filter(!is.na(Inventory)) %>%
+  mutate(mod = ifelse(Inventory == "COVID Behaviors", "logistic", "linear"))
+
+# setup function
+# first creates the three nested models
+# and gets tidy estimates
+# then does model comparisons
+# and returns the results 
+q3_setup_fun <- function(df, invt, mod){
+  f <- if(invt %in% unique(trait_comp$Inventory)){formula(W3 ~ consistency + interval + W1) }else {formula(W3 ~ consistency + interval)}
+  m <- if(mod == "linear") mlin else mlog
+  m2 <- update(m, formula = f, newdata = df)
+  m2 <- add_criterion(m2, criterion = c("loo", "waic"))
+  tidy <- tidy_brms(m2)
+  d <- tibble(mod = list(m2), tidy = list(tidy))
+  rm(list = c("m2", "tidy"))
+  gc()
+  return(d)
+}
+
+# get estimates and lower and upper bounds as a data frame
+tidy_brms <- function(mod){
+  fixef(mod, probs = c(.055, .945)) %>%
+    data.frame() %>%
+    rownames_to_column("term")
+}
+
+mlin <- brm(bf(W3 ~ consistency + interval + W1)
+         , data = q3_nested$data[[1]]
+         , warmup = 1000
+         , iter = 2000)
+mlog <- brm(bf(W3 ~ consistency + interval)
+         ,family = binomial(link = "logit")
+         , data = (q3_nested %>% filter(mod == "logistic"))$data[[1]]
+         , warmup = 1000
+         , iter = 2000)
+
+gc()
+q3_nested <- q3_nested %>%
+  mutate(m = pmap(list(data, Inventory, mod), q3_setup_fun)) 
+save(q3_nested, file = sprintf("%s/results/consequences/results.RData", data_path))
+
+q3_nested <- q3_nested %>%
+  select(-data) %>%
+  rename(mod_type = mod) %>%
+  unnest(m) %>%
+  select(-mod)
+save(q3_nested, file = sprintf("%s/results/consequences/results_small.RData", data_path))
+```
+
+## Tables  
+```{r q3 res}
+load(sprintf("%s/results/consequences/results_small.RData", data_path))
+
+q3_res <- q3_nested %>%
+  unnest(tidy) 
+
+q3_mod_tab_fun <- function(d, dt, set){
+  dt2 <- mapvalues(dt, c("normlz", "resid", "raw", "rawNormlz"), c("Time Normalized and Detrended", "Detrended", "Raw", "Time Normalized"))
+  gr <- d %>% group_by(Inventory) %>% tally() %>% ungroup() %>% 
+    mutate(Inventory = factor(Inventory, levels = unique(d$Inventory))) %>%
+    arrange(Inventory) %>%
+    mutate(end = cumsum(n), start = lag(end) + 1, start = ifelse(is.na(start), 1, start))
+  tab <- d %>% select(-Inventory) %>%
+    kable(.
+          , "html"
+          , col.names = c( "Measure", rep(c("b", "CI"), times = 2))
+          , escape = F
+          , align = c( "r", rep("c",4))
+          , caption = sprintf("<strong>Table X</strong><br><em>Model Results of the Consequences of Ipsative Idiographic Consistency in the Wake of COVID-19 for %s Data with %s", dt2, set)) %>%
+    kable_styling(full_width = F) %>%
+    add_header_above(c(" " = 1, "Contemporaneous" = 2, "Lagged" = 2)) 
+  for(i in 1:nrow(gr)){
+    tab <- tab %>%
+      kableExtra::group_rows(gr$Inventory[i], gr$start[i], gr$end[i]) 
+  }
+  save_kable(tab, file = sprintf("%s/results/consequences/tables/consequences_%s_%s.html", data_path, dt, set))
+  return(tab)
+}
+
+q3_tabs <- q3_res %>%
+  filter(term == "consistency") %>%
+  mutate(sig = ifelse(sign(Q5.5) == sign(Q94.5), "sig", "ns"),
+         Trait = mapvalues(Trait, trait_codebook$Facet, trait_codebook$Trait, warn_missing = F)) %>%
+  mutate_at(vars(Estimate, Q5.5, Q94.5), ~ifelse(mod_type == "logistic", exp(.), .)) %>%
+  mutate_at(vars(Estimate, Q5.5, Q94.5), ~sprintf("%.2f", .)) %>%
+  mutate(CI = sprintf("[%s, %s]", Q5.5, Q94.5)) %>%
+  mutate_at(vars(Estimate, CI), ~ifelse(sig == "sig", sprintf("<strong>%s<strong>", .), .)) %>%
+  select(Inventory, data_type, set, Trait, type, b = Estimate, CI) %>%
+  pivot_wider(names_from = "type"
+              , values_from = c("b", "CI")
+              , names_sep = "_") %>%
+  select(Inventory, data_type, set, Trait
+         , contains("Contemporaneous")
+         , contains("Lagged")) %>%
+  group_by(data_type, set) %>%
+  nest() %>%
+  ungroup() %>%
+  mutate(tab = pmap(list(data, data_type, set), q3_mod_tab_fun))
+```
+

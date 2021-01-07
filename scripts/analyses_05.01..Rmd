@@ -1,0 +1,417 @@
+---
+title: "Consistency of Idiographic Personality in the Wake of COVID-19: A Longitudinal ESM Study"
+output: html_document
+author: 
+  - name        : Emorie D Beck
+    affiliation : 1
+  - name        : Joshua J Jackson
+    affiliation : 1
+
+affiliation:
+  - id          : 1
+    institution : Washington University in St. Louis
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(gimme)
+library(qgraph)
+library(psych)
+library(Amelia)
+library(gridExtra)
+library(rmarkdown)
+library(forcats)
+library(knitr)
+library(kableExtra)
+library(plyr)
+library(stringr)
+library(tidyverse)
+```
+
+```{r}
+wd <- "/Volumes/beck/IPCS"
+res_path <- "~/Box/network/other projects/interventions study"
+
+baseline_codebook <- sprintf("%s/baseline_items_04.01.20.xlsx", res_path) %>% 
+  readxl::read_xlsx(sheet = "codebook")
+
+codebook <- readxl::read_xlsx("~/Box/network/other projects/interventions study/ESM_items.xlsx", sheet = "codebook")
+
+short.facets <- codebook %>% filter(type == "BFI2") %>% select(Facet, shrtFacet) %>% distinct()
+```
+
+
+```{r}
+
+baseline <- sprintf("%s/data/baseline/baseline_04.16.20.csv", res_path) %>% 
+  read_csv() %>%
+  filter(!row_number() %in% c(1,2) & !is.na(SID))
+covid_baseline <- sprintf("%s/data/baseline/baseline_COVID_04.13.20.csv", res_path) %>% 
+  read_csv() %>%
+  filter(!row_number() %in% c(1,2) & !is.na(SID))
+covid_followup <- sprintf("%s/data/followup/followup_COVID_04.16.20.csv", res_path) %>% 
+  read_csv() %>%
+  filter(!row_number() %in% c(1,2) & !is.na(SID))
+
+cols <- baseline_codebook$`New #`
+trait_facets <- baseline %>% select(SID, one_of(cols)) %>% mutate(wave = 1) %>%
+  full_join(covid_baseline %>% select(SID, one_of(cols)) %>% mutate(wave = 2)) %>%
+  full_join(covid_followup %>% select(SID, one_of(cols)) %>% mutate(wave = 3)) %>%
+  gather(key = item, value = t_value, -SID, -wave, na.rm = T) %>%
+  left_join(baseline_codebook %>% select(item = `New #`, Reverse, Facet)) %>%
+  filter(grepl("BFI", item)) %>%
+  separate(item, c("inventory", "Trait", "item"), sep = "_") %>%
+  mutate(t_value = as.numeric(t_value), 
+         t_value = ifelse(Reverse == -1, reverse.code(-1, t_value, mini = 1, maxi = 5), t_value)) %>%
+  group_by(Trait, Facet, SID, wave) %>%
+  summarize(t_value = mean(t_value, na.rm = T))
+
+files <- list.files(wd)
+load("/Volumes/beck/IPCS/clean data/clean_data_C1_2020-04-16.RData")
+all_dat_w2 <- all_dat %>% mutate(wave = 2)
+DS8_w2 <- DS8 %>% mutate(wave = 2)
+BFI_w2 <- BFI %>% mutate(wave = 2)
+sit_w2 <- sit %>% mutate(wave = 2)
+emotion_w2 <- emotion %>% mutate(wave = 2)
+RAT_w2 <- RAT %>% mutate(wave = 2)
+w2_subs <- unique(all_dat_w2$SID)
+load("/Volumes/beck/IPCS/clean data/clean_data_w1_2020-04-16.RData")
+all_dat_w1 <- all_dat %>% mutate(wave = 1) %>% filter(SID %in% w2_subs)
+DS8_w1 <- DS8 %>% mutate(wave = 1) %>% filter(SID %in% w2_subs)
+BFI_w1 <- BFI %>% mutate(wave = 1) %>% filter(SID %in% w2_subs)
+sit_w1 <- sit %>% mutate(wave = 1) %>% filter(SID %in% w2_subs)
+emotion_w1 <- emotion %>% mutate(wave = 1) %>% filter(SID %in% w2_subs)
+RAT_w1 <- RAT %>% mutate(wave = 1) %>% filter(SID %in% w2_subs)
+
+all_dat <- all_dat_w1 %>% full_join(all_dat_w2) %>% distinct()
+BFI <- BFI_w1 %>% full_join(BFI_w2) %>% distinct()
+DS8 <- DS8_w1 %>% full_join(DS8_w2) %>% distinct()
+sit <- sit_w1 %>% full_join(sit_w2) %>% distinct()
+emotion <- emotion_w1 %>% full_join(emotion_w2) %>% distinct()
+RAT <- RAT_w1 %>% full_join(RAT_w2) %>% distinct()
+# load(sprintf("%s/clean data/clean_data_2019-01-23.RData", wd))
+```
+
+```{r}
+# mod_fun <- function(sid, wave, df){
+#   tibble(mod = c("none", "lonely", "prcrst"),
+#          sid = sid, wave = wave, df = list(df)) %>%
+#     mutate(data = pmap(list(sid, wave, df, mod), save_dat_fun)) %>%
+#     select(-sid, -wave)
+# }
+# 
+# save_dat_fun <- function(sid, wave, df, mod){
+#   df <- df %>% arrange(all_beeps)
+#   if(sd(df$prcrst, na.rm = T) == 0 & mod == "prcrst"){
+#     val <- c(0,1)[!c(0,1) == unique(df$prcrst)[1]]
+#     df$prcrst[sample(1:nrow(df), 3)] <- val
+#     # if(sum(df$AnxSwk) < 3){stop("prcrst and AnxSWk have no variance")}
+#     # df <- df %>% group_by(all_beeps) %>% mutate(prcrst = max(AnxSWk, brdSWk, na.rm = T)) %>%
+#     #   ungroup() %>%
+#     #   select(one_of(c(short.facets$shrtFacet)), prcrst)
+#   } else if(sd(df$lonely, na.rm = T) == 0 & mod == "lonely"){
+#     val <- c(0,1)[!c(0,1) == unique(df$lonely)[1]]
+#     df$lonely[sample(1:nrow(df), 3)] <- val
+#   }
+#     # if(sum(df$AnxSwk) < 3){stop("lonely and intFrnd have no variance")}
+#     # df <- df %>% group_by(all_beeps) %>% mutate(lonely = max(intFrnd, intFam)) %>%
+#     #   ungroup() %>%
+#     #   select(one_of(c(short.facets$shrtFacet)), lonely)
+#   # } else {
+#     df <- df %>% select(one_of(c(short.facets$shrtFacet, mod)))
+#   # }
+#   
+#  # df %>%
+#  #   write.csv(., row.names = F, file = sprintf("%s/data/gimme/%s_w%s/%s.csv", res_path, mod, wave, sid))
+#   df
+# }
+# 
+# if(!dir.exists(sprintf("%s/data/gimme", res_path))){dir.create(sprintf("%s/data/gimme", res_path))}
+# if(!dir.exists(sprintf("%s/data/gimme/none_w1", res_path))){dir.create(sprintf("%s/data/gimme/none_w1", res_path))}
+# if(!dir.exists(sprintf("%s/data/gimme/none_w2", res_path))){dir.create(sprintf("%s/data/gimme/none_w2", res_path))}
+# if(!dir.exists(sprintf("%s/data/gimme/lonely_w1", res_path))){dir.create(sprintf("%s/data/gimme/lonely_w1", res_path))}
+# if(!dir.exists(sprintf("%s/data/gimme/lonely_w2", res_path))){dir.create(sprintf("%s/data/gimme/lonely_w2", res_path))}
+# if(!dir.exists(sprintf("%s/data/gimme/prcrst_w1", res_path))){dir.create(sprintf("%s/data/gimme/prcrst_w1", res_path))}
+# if(!dir.exists(sprintf("%s/data/gimme/prcrst_w2", res_path))){dir.create(sprintf("%s/data/gimme/prcrst_w2", res_path))}
+# 
+# res <- all.dat.wide %>%
+#   filter(!is.na(wave)) %>%
+#   group_by(SID, wave) %>%
+#   nest() %>%
+#   ungroup() %>% #filter(SID == "091302") %>%
+#   filter(map(data, nrow) > 10) %>%
+#   mutate(data = pmap(list(SID, wave, data), mod_fun)) %>%
+#   unnest(data)
+# 
+# factor_fun <- function(x){if(is.numeric(x)){diff(range(x, na.rm = T)) %in% 1:2 & length(unique(x)) <= 4} else{F}}
+# 
+# run_fun <- function(df, wave, mod){
+#   l <- df$data
+#   names(l) <- df$SID
+#   g <- gimme(data = l
+#              , out = sprintf("%s/results/gimme/%s_w%s", res_path, mod, wave)
+#              , sep = ","
+#              , header = T)
+#   save(g, file = sprintf("%s/results/gimme/gimme_%s_w%s.RData", res_path, mod, wave))
+#   rm(g)
+#   gc()
+# }
+# 
+# res %>% 
+#   select(-df) %>%
+#   mutate(data = map(data, ~(.) %>% mutate_if(factor_fun, factor))) %>%
+#   group_by(mod, wave) %>%
+#   nest() %>%
+#   ungroup() %>%
+#   mutate(data = pmap(list(data, wave, mod), run_fun))
+# 
+# if(!dir.exists(sprintf("%s/results/gimme", res_path))){dir.create(sprintf("%s/results/gimme", res_path))}
+# if(!dir.exists(sprintf("%s/results/gimme/none_w1", res_path))){dir.create(sprintf("%s/results/gimme/none_w1", res_path))}
+# if(!dir.exists(sprintf("%s/results/gimme/none_w2", res_path))){dir.create(sprintf("%s/results/gimme/none_w2", res_path))}
+# if(!dir.exists(sprintf("%s/results/gimme/lonely_w1", res_path))){dir.create(sprintf("%s/results/gimme/lonely_w1", res_path))}
+# if(!dir.exists(sprintf("%s/results/gimme/lonely_w2", res_path))){dir.create(sprintf("%s/results/gimme/lonely_w2", res_path))}
+# if(!dir.exists(sprintf("%s/results/gimme/prcrst_w1", res_path))){dir.create(sprintf("%s/results/gimme/prcrst_w1", res_path))}
+# if(!dir.exists(sprintf("%s/results/gimme/prcrst_w2", res_path))){dir.create(sprintf("%s/results/gimme/prcrst_w2", res_path))}
+# 
+# gimme_fun <- function(mod, wave){
+#   g <- gimme(data = sprintf("%s/data/gimme/%s_w%s", res_path, mod, wave)
+#              , out = sprintf("%s/results/gimme/%s_w%s", res_path, mod, wave)
+#              , sep = ","
+#              , header = T)
+#   save(g, file = sprintf("%s/results/gimme/gimme_%s_w%s.RData", res_path, mod, wave))
+#   rm(g)
+#   gc()
+#   return(T)
+# }
+# 
+# gimme_fun("prcrst", 2)
+# 
+# crossing(
+#   mod = c("none", "prcrst", "lonely"),
+#   wave = c(1, 2)
+# ) %>%
+#   mutate(gimme = map2(mod, wave, gimme_fun))
+```
+
+
+```{r}
+# read in the data 
+ind_load_fun <- function(mod, wave){
+  sprintf("%s/results/gimme/%s_w%s/indivPathEstimates.csv", res_path, mod, wave) %>% 
+    read_csv() %>%
+    mutate(type = ifelse(grepl("lag", lhs) | grepl("lag", rhs), "Lagged", "Contemporaneous")) %>%
+    filter(level != "group") %>%
+    select(SID = file, from = lhs, to = rhs, value = beta, type)
+}
+
+group_load_fun <- function(mod, wave){
+  sprintf("%s/results/gimme/%s_w%s/indivPathEstimates.csv", res_path, mod, wave) %>% 
+    read_csv() %>%
+    mutate(type = ifelse(grepl("lag", lhs) | grepl("lag", rhs), "Lagged", "Contemporaneous")) %>%
+    filter(level == "group") %>%
+    select(SID = file, from = lhs, to = rhs, value = beta, type) %>%
+    group_by(from, to, type) %>%
+    summarize(value = mean(value, na.rm = T)) %>%
+    ungroup()
+}
+
+# clean and reformat the data
+
+PDC_fun <- function(df, model){
+  if(is.null(df)){df <- data.frame(from = character(), to = character(), value = double())}
+  if(model == "none"){vars <- short.facets$shrtFacet} else{vars <- c(short.facets$shrtFacet, model)}
+  df <- df %>% 
+    full_join(crossing(to = paste(vars, "lag", sep = ""), from = vars)) %>%
+    mutate(to = str_remove_all(to, "lag")) %>%
+    mutate_at(vars(from, to), funs(factor(., levels = vars))) %>%
+    spread(to, value) %>% 
+    mutate_at(vars(-from), funs(ifelse(is.na(.), 0, .))) %>%
+    unclass() %>% data.frame() 
+  rownames(df) <- df$from
+  df <- df %>% select(-from)
+}
+
+PCC_fun <- function(df, model){
+  if(is.null(df)){df <- data.frame(from = character(), to = character(), value = double())}
+  if(model == "none"){vars <- short.facets$shrtFacet} else{vars <- c(short.facets$shrtFacet, model)}
+  df <- df %>% 
+    full_join(crossing(from = vars, to = vars)) %>%
+    mutate_at(vars(from, to), funs(factor(., levels = vars))) %>%
+    arrange(from) %>%
+    spread(to, value) %>% 
+    mutate_at(vars(-from), funs(ifelse(is.na(.), 0, .))) %>%
+    unclass() %>% data.frame()
+  rownames(df) <- df$from
+  df <- df %>% select(-from)
+  df <- as.matrix(df)
+  PCC <- apply(simplify2array(list(df, t(df))), 1:2, mean)
+  diag(PCC) <- NA
+  PCC <- data.frame(PCC)
+}
+
+long_fun <- function(df){df %>% rownames_to_column("from") %>% gather(key = to, value = value, -from)}
+
+gimme_nested <- crossing(
+    mod = c("none", "prcrst", "lonely"),
+    wave = c(1, 2)
+  ) %>%
+  mutate(gimme = map2(mod, wave, ind_load_fun)) %>%
+  unnest(gimme) %>%
+  group_by(mod, wave, SID, type) %>%
+  nest() %>%
+  ungroup() %>%
+  pivot_wider(names_from = type, values_from = data) %>%
+  mutate(PDC = map2(Lagged, mod, PDC_fun),
+         PCC = map2(Contemporaneous, mod, PCC_fun),
+         Lagged = map(PDC, long_fun),
+         Contemporaneous = map(PCC, long_fun))
+
+gimme_group <- crossing(
+  mod = c("none", "prcrst", "lonely"),
+  wave = c(1, 2)
+) %>%
+  mutate(gimme = map2(mod, wave, group_load_fun)) %>%
+  unnest(gimme) %>%
+  group_by(mod, wave, type) %>%
+  nest() %>%
+  ungroup() %>%
+  pivot_wider(names_from = type, values_from = data) %>%
+  mutate(PDC = map2(Lagged, mod, PDC_fun),
+         Lagged = map(PDC, long_fun))
+```
+
+## Cross-Wave Consistency  
+```{r}
+ipsative_fun <- function(w1, w2) {
+  d <- rename(w1, wave1 = value) %>% full_join(rename(w2, wave2 = value)) 
+  with(d, cor(wave1, wave2, use = "pairwise"))
+}
+
+ip_consis <- gimme_nested %>%
+  select(SID, mod, wave, Lagged, Contemporaneous) %>%
+  gather(type, long, Lagged, Contemporaneous) %>%
+  spread(wave, long) %>%
+  mutate(consistency = map2_dbl(`1`, `2`, possibly(ipsative_fun, NA_real_)))
+
+ip_consis %>%
+  select(-`1`, -`2`) %>%
+  filter(mod == "none") %>%
+  ggplot(aes(x = consistency, y = ..density..)) +
+  scale_fill_manual(values = c("blue", "springgreen4")) +
+    geom_histogram(fill = "gray", color = "black") +
+    geom_density(aes(fill = type), bw = .1, alpha = .3)+
+    geom_vline(aes(xintercept = 0), linetype = "dashed", size = 1)+
+    scale_x_continuous(limits = c(-1.1,1.1), breaks = seq(-1,1,1)) +
+    labs(x = "Ipsative Correlations", y = "Density",
+         title = "Ipsative Network Consistency") +
+    facet_grid(~type) +
+    theme_classic() +
+    theme(axis.text = element_text(face = "bold", size = rel(1.2)),
+          axis.title = element_text(face = "bold", size = rel(1.2)),
+          strip.text = element_text(face = "bold", size = rel(1.2)),
+          plot.title = element_text(face = "bold", size = rel(1.2), hjust = .5),
+          legend.position = "none")
+```
+
+```{r}
+edge_colors <- RColorBrewer::brewer.pal(8, "Purples")[c(2,4,6,8)]
+idio_plot_fun <- function(data, subject, wave, type){
+  n <- nrow(data)
+  if(n == 15){b5_groups <- list(A = c(7,9,13), E = c(2,11,15), C = c(6,8,12), N = c(3,4,14), O = c(1,5,10))}
+  else{b5_groups <- list(A = c(7,9,13), E = c(2,11,15), C = c(6,8,12), N = c(3,4,14), O = c(1,5,10), other = 16:n)}
+  # subject <- ifelse(subject == "10506", "1",
+  #            ifelse(subject == "39941", "2", subject))
+  plot <- 
+    qgraph(data, layout = "spring", loop = .7, node.width = 1.85, edge.width = 1, esize = 7,
+           title = sprintf("Wave %s: %s for S%s", wave, type, subject), label.font = 2, repulsion = .8,
+                   label.fill.vertical = 1, label.fill.horizontal = 1, edge.color = "black",
+                   groups = b5_groups, color = rev(c("#FFFFB3", t(RColorBrewer::brewer.pal(9, "Purples")[seq(1,9,2)]))),
+                   legend = F, DoNotPlot = TRUE, mar = c(4,4,4,4), asize = 5)
+  #change lines to dashed
+  plot$graphAttributes$Edges$lty[plot$Edgelist$weight < 0] <- 2
+  #change line colors
+  plot$graphAttributes$Edges$color <-
+    ifelse(abs(plot$Edgelist$weight) <.1, edge_colors[1],
+    ifelse(abs(plot$Edgelist$weight) <.2, edge_colors[2], edge_colors[3]))
+  dark_colors <- c("#9E9AC8", "#807DBA", "#6A51A3", "#54278F", "#3F007D")
+  plot$graphAttributes$Nodes$label.color[plot$graphAttributes$Nodes$color %in% dark_colors] <- "white"
+  vars <- str_replace(colnames(data), "_", "\n")
+  #change variable names
+  plot$graphAttributes$Nodes$labels <- vars
+  return(plot)
+}
+
+gimme_nested <- gimme_nested %>%
+  mutate(lagged_plot = pmap(list(PDC, SID, wave, "Lagged"),
+                          idio_plot_fun),
+         contemp_plot = pmap(list(PCC, SID, wave, "Contemporaneous"),
+                          idio_plot_fun))
+
+big5 <- tibble(letter = c("E", "A", "C", "N", "O"),
+               trait = c("Extraversion", "Agreeableness",
+                         "Conscientiousness", "Neuroticism", 
+                         "Openness"))
+```
+
+```{r}
+BFI.facet <- BFI %>% rename(value = responses2) %>%
+  # mutate(itemnum = str_extract(item, "[0-9]+"),
+  #        trait = str_replace(item, "[0-9]+", ""),
+  #        facet = mapvalues(itemnum, 1:12, rep(1:3, each = 4))) %>%
+  # group_by(SID, trait, facet, all_beep) %>%
+  # summarize(value = mean(value))
+  # left_join(BFI %>% filter(!is.na(item)) %>% 
+  #             select(SID, Hour, Minute, item, facet, trait))
+  left_join(codebook %>% select(item = Item, trait = Trait, facet = Facet, reverse)) %>%
+  filter(!is.na(value)) %>%
+  mutate(value = as.numeric(value), 
+         value = ifelse(is.na(reverse), value, as.numeric(mapvalues(round(value), 1:5, 5:1)))) %>%
+  group_by(SID, wave, facet, trait, Date, Hour, HourBlock, Day) %>%
+  summarize(value = mean(value, na.rm = T)) %>% 
+  ungroup() %>%
+  filter(!is.na(facet)) %>%
+  mutate(value = ifelse(is.nan(value) == T, NA_real_, value),
+         facet2 = mapvalues(facet, short.facets$Facet, short.facets$shrtFacet)) %>%
+  select(SID, wave, facet2, value, Date, Hour, HourBlock, Day) %>%
+  spread(key = facet2, value = value)
+
+BFI.mi <- BFI.facet %>%
+  arrange(SID, wave, Date, HourBlock) %>%
+  group_by(SID, wave) %>%
+  mutate(all_beeps = seq(1, n(), 1)) %>%
+  select(-(Date:Day)) %>%
+  group_by(wave) %>%
+  nest() %>%
+  ungroup() %>%
+  mutate(data = map(data, ~(.) %>% unclass %>% data.frame %>% amelia(., m = 1, ts = "all_beeps", idvars = "SID")),
+         data = map(data, ~(.)$imputations[[1]] %>% tbl_df)) %>%
+  unnest(data)
+```
+
+```{r}
+convergence <- BFI.mi %>%
+  gather(item, s_value, -wave, -SID) %>%
+  left_join(codebook %>% select(item = shrtFacet, Trait, Facet)) %>%
+  mutate(Trait = str_sub(Trait, 0, 1)) %>%
+  select(-item) %>%
+  full_join(trait_facets %>% filter(wave %in% 1:2)) %>%
+  group_by(Trait, Facet, wave) %>%
+  nest() %>% 
+  ungroup() %>%
+  filter(!is.na(wave) & !is.na(Trait) & !is.na(Facet)) %>%
+  mutate(m = map(data, ~lmer(s_value ~ 1 + t_value + (1 | SID), data = .)),
+         tidy = map(m, ~broom.mixed::tidy(., conf.int = T)))
+
+convergence %>% select(-data, -m) %>%
+  unnest(tidy) %>%
+  filter(term == "t_value")
+```
+
+
+
+

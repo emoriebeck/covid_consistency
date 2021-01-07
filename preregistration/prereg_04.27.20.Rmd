@@ -1,0 +1,273 @@
+---
+title           : "Consistency of Idiographic Personality in the Wake of COVID-19: A Longitudinal ESM Study"
+shorttitle      : "Idiographic Personality Consistency"
+date            : "`r Sys.setlocale('LC_TIME', 'C'); format(Sys.time(), '%d\\\\. %B %Y')`"
+
+author: 
+  - name        : Emorie D Beck
+    affiliation : 1
+  - name        : Joshua J Jackson
+    affiliation : 1
+
+affiliation:
+  - id          : 1
+    institution : Washington University in St. Louis
+
+output: prereg::cos_prereg
+---
+
+# Study Information
+
+## Title
+<!-- Provide the working title of your study. It may be the same title that you submit for publication of your final manuscript, but it is not a requirement. The title should be a specific and informative description of a project. Vague titles such as 'Fruit fly preregistration plan' are not appropriate.
+
+Example: Effect of sugar on brownie tastiness. -->
+
+`r rmarkdown::metadata$title`
+
+
+## Description
+<!-- Please give a brief description of your study, including some background, the purpose of the of the study, or broad research questions. The description should be no longer than the length of an abstract. It can give some context for the proposed study, but great detail is not needed here for your preregistration.
+
+Example: Though there is strong evidence to suggest that sugar affects taste preferences, the effect has never been demonstrated in brownies. Therefore, we will measure taste preference for four different levels of sugar concentration in a standard brownie recipe to determine if the effect exists in this pastry. -->
+
+Personality is a study of persons, but persons exist within contexts. Much evidence suggests that persons and environments bidirectionally influence each other, with persons selecting into and modifying their contexts and situations having long-lasting influences on cognition, emotion, and behavior. From this perspective, environmental change should produce changes in personality, meaning there should be relatively weak consistency in patterns of cognition, emotion, and behavior across environmental change. However, we argue for a consistency paradox in which environmental changes should produce few changes and relatively high consistency in patterns of cognition, emotion, and behavior (Caspi \& Moffitt, 1993). We test this by examining idiographic personality consistency between up to one year before the global COVID-19 pandemic and mid-March 2020 using data from a longitudinal Experience Sampling Method study. We also ask about the antecedents and consequences of consistency, examining both what prospectively predicts consistency as well as what consistency prospectively predicts. 
+
+
+
+## Hypotheses
+<!-- List specific, concise, and testable hypotheses. Please state if the hypotheses are directional or non-directional. If directional, state the direction. A predicted effect is also appropriate here. If a specific interaction or moderation is important to your research, you can list that as a separate hypothesis.
+
+Example: If taste affects preference, then mean preference indices will be higher with higher concentrations of sugar. -->
+
+Rather than hypotheses, the present study addresses three key research questions. 
+
+1. How much idiographic longitudinal consistency is demonstrated in the wake of a global health crisis?  
+2. What are the antecedents of consistency (i.e. what prospectively predicts individual differences in idiographic longitudinal consistency of personality)?  
+3. What are the consequences of consistency (i.e. what do individual differences in idiographic longitudinal consistency of personality prospectively predict)?  
+
+
+# Design Plan
+<!-- In this section, you will be asked to describe the overall design of your study. Remember that this research plan is designed to register a single study, so if you have multiple experimental designs, please complete a separate preregistration. -->
+
+
+## Study type
+
+**Observational Study**. Data is collected from study subjects that are not randomly assigned to a treatment. This includes surveys, natural experiments, and regression discontinuity designs.
+
+
+## Blinding
+<!-- Blinding describes who is aware of the experimental manipulations within a study. Select all that apply. Is there any additional blinding in this study? -->
+
+No blinding is involved in this study.
+
+
+## Study design
+<!-- Describe your study design. Examples include two-group, factorial, randomized block, and repeated measures. Is it a between (unpaired), within-subject (paired), or mixed design? Describe any counterbalancing required. Typical study designs for observation studies include cohort, cross sectional, and case-control studies.
+
+This question has a variety of possible answers. The key is for a researcher to be as detailed as is necessary given the specifics of their design. Be careful to determine if every parameter has been specified in the description of the study design. There may be some overlap between this question and the following questions. That is OK, as long as sufficient detail is given in one of the areas to provide all of the requested information. For example, if the study design describes a complete factorial, 2 X 3 design and the treatments and levels are specified previously, you do not have to repeat that information.
+
+Example: We have a between subjects design with 1 factor (sugar by mass) with 4 levels. -->
+
+The present study is a longitudinal study of both trait assessments (3 waves) and ESM assessments (2 waves).
+
+## Randomization
+<!-- If you are doing a randomized study, how will you randomize, and at what level? Typical randomization techniques include: simple, block, stratified, and adaptive covariate randomization. If randomization is required for the study, the method should be specified here, not simply the source of random numbers.
+
+Example: We will use block randomization, where each participant will be randomly assigned to one of the four equally sized, predetermined blocks. The random number list used to create these four blocks will be created using the web applications available at http://random.org. -->
+
+Item order in both the trait and state measures were randomized.  
+
+In addition, state personality was measured using a planned missing data protocol. Participants received 15 out of 60 BFI-2 items at each time point, 3 from each trait at each time point to assure full covariance matrix coverage as well as equal coverage across traits. More details about the procedure and validity of this method are available on the Open Science Framework (https://osf.io/pj9sy/).  
+
+
+# Sampling Plan
+<!-- In this section we’ll ask you to describe how you plan to collect samples, as well as the number of samples you plan to collect and your rationale for this decision. Please keep in mind that the data described in this section should be the actual data used for analysis, so if you are using a subset of a larger dataset, please describe the subset that will actually be used in your study. -->
+
+
+## Existing data
+<!-- Preregistration is designed to make clear the distinction between confirmatory tests, specified prior to seeing the data, and exploratory analyses conducted after observing the data. Therefore, creating a research plan in which existing data will be used presents unique challenges. Please select the description that best describes your situation. Please do not hesitate to contact us if you have questions about how to answer this question (prereg@cos.io). -->
+
+**Registration following analysis of the data**. As of the date of submission, you have accessed and analyzed some of the data relevant to the research plan. This includes preliminary analysis of variables, calculation of descriptive statistics, and observation of data distributions. Please see cos.io/prereg for more information.
+
+Preliminary analyses of the data have been conducted using some techniques that will be used in the present study. However, these analyses were written to create automatically generated individual feedback reports for participants. No inferential tests of the data have been conducted. 
+
+## Explanation of existing data
+<!-- If you indicate that you will be using some data that already exist in this study, please describe the steps you have taken to assure that you are unaware of any patterns or summary statistics in the data. This may include an explanation of how access to the data has been limited, who has observed the data, or how you have avoided observing any analysis of the specific data you will use in your study.
+
+An appropriate instance of using existing data would be collecting a sample size much larger than is required for the study, using a small portion of it to conduct exploratory analysis, and then registering one particular analysis that showed promising results. After registration, conduct the specified analysis on that part of the dataset that had not been investigated by the researcher up to that point.
+
+Example: An appropriate instance of using existing data would be collecting a sample size much larger than is required for the study, using a small portion of it to conduct exploratory analysis, and then registering one particular analysis that showed promising results. After registration, conduct the specified analysis on that part of the dataset that had not been investigated by the researcher up to that point. -->
+
+Although the first author has accessed the data, the second author has not. The introduction, aims, hypotheses, and analysis plan were all written prior to any aggregation of the results. The data cleaning, analysis plan, and inferential tests will detailed carefully and all deviations from the planned analyses will be included the final manuscript.  
+
+
+## Data collection procedures
+<!-- Please describe the process by which you will collect your data. If you are using human subjects, this should include the population from which you obtain subjects, recruitment efforts, payment for participation, how subjects will be selected for eligibility from the initial pool (e.g. inclusion and exclusion rules), and your study timeline. For studies that donÍt include human subjects, include information about how you will collect samples, duration of data gathering efforts, source or location of samples, or batch numbers you will use.
+
+The answer to this question requires a specific set of instructions so that another person could repeat the data collection procedures and recreate the study population. Alternatively, if the study population would be unable to be reproduced because it relies on a specific set of circumstances unlikely to be recreated (e.g., a community of people from a specific time and location), the criteria and methods for creating the group and the rationale for this unique set of subjects should be clear.
+
+Example: Participants will be recruited through advertisements at local pastry shops. Participants will be paid $10 for agreeing to participate (raised to $30 if our sample size is not reached within 15 days of beginning recruitment). Participants must be at least 18 years old and be able to eat the ingredients of the pastries. -->
+
+Participants in this study were drawn from a larger study personality study.
+
+Participants responded to two types of surveys: trait and state (Experience Sampling Method; ESM) measures, for which they were paid separately. For the first wave, participants were recruited from the psychology subject pool at Washington University in St. Louis. Participants were told that the study posted on the recruitment website was the first wave of a longer longitudinal study they would be offered the opportunity to take part in.
+
+Participants were brought into the lab between October 2018 and December 2019, where a research assistant or the first author explained the study procedure to them and walked them through the consent procedure. If they consented, participants were led to a room where they could fill out a form to opt into the ESM portion of the study. They then completed baseline trait measures using the Qualtrics Survey Platform. After, the participants were debriefed, paid \$10 in cash and, if they opted into the ESM portion of the study, the ESM survey procedure was explained to them. 
+
+Participants then received ESM measures 4 times a day for a two weeks (max n = 56). The survey platform was built by the first author using the jsPsych library. Additional javascript controllers were written for the purpose of this study and are available on the first author's GitHub. Start times were based on times participants indicated they would like to receive their first survey. Surveys were sent every 4 hours, meaning that the surveys spanned a 12 hour period from the first time participants indicated. Participants received their first survey at their chosen time on the Monday following their in-lab session. They were compensated \$0.50 for each survey completed for a maximum of $28. To incentivize responding, participants who completed at least 50 surveys received a "bonus" for a total compensation of \$30, which was distributed as an Amazon Gift Card.
+
+Additional waves of data were completed remotely online. Participants who completed baseline  trait and ESM assessments between March and December 2019 were contacted via email by the first author on March 16. Participants who responded then received an email with a link to a Qualtrics survey on March 20 with which they completed a second set of trait measures for which they were compensated \$5. The following Monday, March 23, after being given the opporunity to modify their start time to accomodate different timezones or conditions, these participants then received a second round of ESM surveys. As before, participants received these 4 times per day, 4 hours apart, for 2 weeks (March 23 to April 5) and were compensated \$.50 per survey for up 50 surveys, and \$30 total for responding to more than that. At the end of the 2 weeks, on April 6, participants received an email link containing a new Qualtrics link to the next round of trait measures, which also included additional measures related to COVID-19 experiences. For completing this survey, paticipants were compensated \$10. Each of these later surveys were paid as a single Amazon Gift Card sent to participants at an email of their choice.  
+
+
+## Sample size
+<!-- Describe the sample size of your study. How many units will be analyzed in the study? This could be the number of people, birds, classrooms, plots, interactions, or countries included. If the units are not individuals, then describe the size requirements for each unit. If you are using a clustered or multilevel design, how many units are you collecting at each level of the analysis? For some studies, this will simply be the number of samples or the number of clusters. For others, this could be an expected range, minimum, or maximum number.
+
+Example: Our target sample size is 280 participants. We will attempt to recruit up to 320, assuming that not all will complete the total task. -->
+
+N = 50 participants completed assessments at all time points.  
+
+
+## Sample size rationale
+<!-- This could include a power analysis or an arbitrary constraint such as time, money, or personnel. This gives you an opportunity to specifically state how the sample size will be determined. A wide range of possible answers is acceptable; remember that transparency is more important than principled justifications. If you state any reason for a sample size upfront, it is better than stating no reason and leaving the reader to "fill in the blanks." Acceptable rationales include: a power analysis, an arbitrary number of subjects, or a number based on time or monetary constraints.
+
+Example: We used the software program G*Power to conduct a power analysis. Our goal was to obtain .95 power to detect a medium effect size of .25 at the standard .05 alpha error probability. -->
+
+Sample size here is based on participants who completed the baseline survey and baseline experience sampling surveys in a prior semester but who had not completed other phases of longer personality intervention study. All participants who met this criteria were emailed on March 16, 2020, asking them to opt into a new study. Participants who gave their consent were then drafted into the new study.   
+
+
+## Stopping rule
+<!-- If your data collection procedures do not give you full control over your exact sample size, specify how you will decide when to terminate your data collection. 
+
+You may specify a stopping rule based on p-values only in the specific case of sequential analyses with pre-specified checkpoints, alphas levels, and stopping rules. Unacceptable rationales include stopping based on p-values if checkpoints and stopping rules are not specified. If you have control over your sample size, then including a stopping rule is not necessary, though it must be clear in this question or a previous question how an exact sample size is attained.
+
+Example: We will post participant sign-up slots by week on the preceding Friday night, with 20 spots posted per week. We will post 20 new slots each week if, on that Friday night, we are below 320 participants. -->
+
+Participants were included in this study if they responded to the invitation email by two days before experience sampling surveys began on March 23.  
+
+
+
+# Variables
+<!-- In this section you can describe all variables (both manipulated and measured variables) that will later be used in your confirmatory analysis plan. In your analysis plan, you will have the opportunity to describe how each variable will be used. If you have variables which you are measuring for exploratory analyses, you are not required to list them, though you are permitted to do so. -->
+
+
+## Measured variables
+<!-- Describe each variable that you will measure. This will include outcome measures, as well as any predictors or covariates that you will measure. You do not need to include any variables that you plan on collecting if they are not going to be included in the confirmatory analyses of this study.
+
+Observational studies and meta-analyses will include only measured variables. As with the previous questions, the answers here must be precise. For example, 'intelligence,' 'accuracy,' 'aggression,' and 'color' are too vague. Acceptable alternatives could be 'IQ as measured by Wechsler Adult Intelligence Scale' 'percent correct,' 'number of threat displays,' and 'percent reflectance at 400 nm.'
+
+Example: The single outcome variable will be the perceived tastiness of the single brownie each participant will eat. We will measure this by asking participants ‘How much did you enjoy eating the brownie’ (on a scale of 1-7, 1 being 'not at all', 7 being 'a great deal') and 'How good did the brownie taste' (on a scale of 1-7, 1 being 'very bad', 7 being 'very good'). -->
+
+A list of all measured variables are included in two supplementary codebooks included with this preregistration.   
+All ESM items were chosen before the beginning of the larger study from which this study was drawn. ESM measures from that study inlcuded personality, emotions, situations (binary), situations (DIAMONDS), and a cognitive task (the Remote Associates Test). For the purposes of this study, we will use personality and binary situation items.  
+Trait measures included in the present study were included 3 times. The baseline wave was collected as part of the same larger study from which participants were drawn. The two additional waves were collected only for participants who participated in the present study. Items were the same across the waves with the exception of a number of items added in the third wave that directly asked questions about COVID-19 related experiences. 
+
+## Indices
+<!-- If any measurements are  going to be combined into an index (or even a mean), what measures will you use and how will they be combined? Include either a formula or a precise description of your method. If your are using a more complicated statistical method to combine measures (e.g. a factor analysis), you can note that here but describe the exact method in the analysis plan section.
+
+If you are using multiple pieces of data to construct a single variable, how will this occur? Both the data that are included and the formula or weights for each measure must be specified. Standard summary statistics, such as "means" do not require a formula, though more complicated indices require either the exact formula or, if it is an established index in the field, the index must be unambiguously defined. For example, "biodiversity index" is too broad, whereas "Shannon’s biodiversity index" is appropriate.
+
+Example: We will take the mean of the two questions above to create a single measure of 'brownie enjoyment.'  -->
+
+Personality was measured in both the trait surveys and ESM surveys using the full BFI-2 (Soto \& John, 2017). For the purposes of the present study, items will be reversed scored and composited into their resulting 15 facets for both trait and state level assessments. 
+
+Antecedents and Consequences: 
+
+- Depression was measured with the 20-item CES-D scale (Radloff, 1977).  
+- Loneliness was measured using a 6-item short form of the UCLA Loneliness scale (ULS-6; Nett, 1992) both in general and with reference to their experiences at university.  
+- Subjective well-being was measured with the 5-item Satisfaction with Life (SWL; Diener, Emmons, Larsen, \& Griffin, 1985) scale, a 5-item negative affect scale, and a 5-item positive affect scale.  
+- Domain satisfaction was measured by asking about satisfaction in nine specific domains, including family, friendships, romantic relationships, community, academics, finances, physical health, psychological health, and hobbies.  
+- Diligence was measured using 11 items from the Dilligence Inventory-Higher Education (DI-HE; Bernard \& Schuttenberg, 1995)  
+- Goals were measured using 12 items from a larger set of 26 major life goals used in prior studies (e.g. Roberts \& Robins, 2000). For the purposes of this study, we are specifically interested in the following: "Have an easy life," "Be in good physical condition," "Devote attention to my spiritual life," "Feel a real purpose in life," and "Have fun." The other 7 items will be included in the supplementary materials.  
+- Purpose in Life was measured using the Purpose in Life subscale of Ryff's Psychological Well-Being scale (Ryff, 1989).  
+
+# Analysis Plan
+<!-- You may describe one or more confirmatory analysis in this preregistration. Please remember that all analyses specified below must be reported in the final article, and any additional analyses must be noted as exploratory or hypothesis generating.
+
+A confirmatory analysis plan must state up front which variables are predictors (independent) and which are the outcomes (dependent), otherwise it is an exploratory analysis. You are allowed to describe any exploratory work here, but a clear confirmatory analysis is required. -->
+
+The present study addresses three questions regarding longitudinal idiographic consistency. The analyses will be organized around these. 
+
+First, we will estimate idiographic personality structure using the GIMME procedure, which is a procedure for estimating both idiographic estimates of time series data. Using cubic spline interpolated facet time series, we will estimate an idiographic unified structural equation model (uSEM) for each person as well as a group-level uSEM model. The GIMME procedure, which uses a iterative procedure for retaining pathways in the model using Lagrange multiplier tests, starts by estimating a group-level model. The pathways retained in the group-level model are entirely determined by the idiographic pathways. Starting with a null model, pathways are iteratively added to the group-level model when the largest proportion of individuals (above a chosen threshold, 75\% by default) show a better model fit according to the Lagrange multiplier tests. This procedure is continued until no additional pathways improve fit above the threshold. Idiographic models are then built using a similar procedure, with the exception that the results of the Lagrange multiplier test is only based on the target individual and is not informed by the results of other individuals in any way. The iterative procedure continues for each person until the procedure indicates that no pathways improve model fit. This procedure will repeated for each wave of ESM data.  
+
+Once the GIMME models are estimated, we will estimate idiographic personality consistency by estimating the profile correlation of all possible pathways for each person. Profile correlations are a measure of longitudinal ipsative consistency. High positive ipsative consistency suggests the profiles are very similar (i.e. parallel) over time. Zero correlations suggest that there is no pattern in how the two profiles differ. Negative correlations mean there is a consistent pattern of reversals (i.e. high estimates at one timepoint are now low and vice versa) and are generally less common. Correlations will be estimated using the `cor.ci()` function in the `psych` package (in order to estimate bootstrapped confidence intervals of the correlations). We will test these both for contemporaneous and lagged associations separately as well as together because our previous research suggests that lagged associations are less consistent than contemporaneous ones. We will also test this for group-level associations, testing whether shared patterns of personality manifestations were consistency over this period.  
+
+Next, we will address aim 2, asking are the antecedents of consistency (i.e. what prospectively predicts individual differences in idiographic longitudinal consistency of personality). To do so, we will use the consistency estimates from aim 1 as well as baseline estimates from the first two waves of trait estimates, both of which were collected prior to the second wave of experience sampling data. Consistency will be transformed to z-scores using Fisher's r-to-z transformation to control for the non-normality of correlations. A full list of measures whose consistency we will predict can be seen in the table below. For each of these, we will test whether wave 1 or 2 baseline measures predict consistency using bayesian multiple regression using the `brms` package in `R`. In addition, we will test whether a linear combination of the 2 (i.e. an interaction) between the estimates at each wave outpredict the estimates alone. Because participants have different measurement intervals between ESM survey periods, we will control for the ellapsed time. In other words, we will ask whether any of the tested indices predict consistency above and beyond time alone. We will use weakly regularizing priors for all analyses and 5000 samples (2000 warmup samples). Model fit and convergence will be tested by looking at rhat values.  
+
+The basic form of the tested models will be as follows.
+
+Model 1, predicting consistency from baseline: $Consistency_{i3} = b_0 + b_1X_{i1} + b_2Interval_{i3}$, where the second subscript is a marker of time.  
+Model 2, predicting consistency from concurrent measures: $Consistency_{i3} = b_0 + b_1X_{i1} + b_2Interval_{i3} + b_3X_{i2}$  
+Model 3, predicting consistency from change since baseline: $Consistency_{i3} = b_0 + b_1X_{i1} + b_2Interval_{i3} + b_3X_{i2} + b_4X_{i1}*X_{i2}$  
+
+In a final step, we will address aim 3, asking what are the consequences of consistency (i.e. what do individual differences in idiographic longitudinal consistency of personality prospectively predict) for well-being and COVID-19 related experiences (measured at wave 3, which was collected after the second wave of experience sampling), including average positive and negative affect, satisfaction with life, domain satisfaction, CESD depression, loneliness, dilligence, procrastination, and time spent with others during quarantine. These will be tested using multiple regression in the `brms` package in `R` using the same model conditions as aim 2. For these analyses we will control for baseline (wave 1) measures of each target outcome as well as the interval between ESM waves.  
+
+Model 1, predicting consistency from baseline: $X_{i3} = b_0 + b_1Consistency_{i3} + b_2Interval_{i3} + b_3X_{i1}$, where the second subscript is a marker of time.  
+
+We will also include a number descriptives of the sample, including age, gender, COVID-19 diagnoses, tests, symptoms, and pre-existing conditions.  
+
+
+## Statistical models
+<!-- What statistical model will you use to test each hypothesis? Please include the type of model (e.g. ANOVA, multiple regression, SEM, etc) and the specification of the model (this includes each variable that will be included as predictors, outcomes, or covariates). Please specify any interactions, subgroup analyses, pairwise or complex contrasts, or follow-up tests from omnibus tests. If you plan on using any positive controls, negative controls, or manipulation checks you may mention that here. Remember that any test not included here must be noted as an exploratory test in your final article.
+
+This is perhaps the most important and most complicated question within the preregistration. As with all of the other questions, the key is to provide a specific recipe for analyzing the collected data. Ask yourself: is enough detail provided to run the same analysis again with the information provided by the user? Be aware for instances where the statistical models appear specific, but actually leave openings for the precise test. See the following examples:
+
+- If someone specifies a 2x3 ANOVA with both factors within subjects, there is still flexibility with the various types of ANOVAs that could be run. Either a repeated measures ANOVA (RMANOVA) or a multivariate ANOVA (MANOVA) could be used for that design, which are two different tests. 
+- If you are going to perform a sequential analysis and check after 50, 100, and 150 samples, you must also specify the p-values you’ll test against at those three points.
+
+Example:  We will use a one-way between subjects ANOVA to analyze our results. The manipulated, categorical independent variable is 'sugar' whereas the dependent variable is our taste index. -->
+
+Aim 1 will be tested using unified SEM (uSEM) and the gimme procedure as implemented in the `gimme` package in `R`. Consistency will be tested using profile correlations with bootstrapped confidence intervals.
+
+Aims 2 and 3 will be tested using bayesian multiple regression in R with weakly regularizing priors to regularize the results. 
+
+
+## Transformations
+<!-- If you plan on transforming, centering, recoding the data, or will require a coding scheme for categorical variables, please describe that process. If any categorical predictors are included in a regression, indicate how those variables will be coded (e.g. dummy coding, summation coding, etc.) and what the reference category will be.
+
+Example: The "Effect of sugar on brownie tastiness" does not require any additional transformations. However, if it were using a regression analysis and each level of sweet had been categorically described (e.g. not sweet, somewhat sweet, sweet, and very sweet), 'sweet' could be dummy coded with 'not sweet' as the reference category. -->
+
+Because the proposed analytic procedure (GIMME) uses lags by default, which assume equal intervals of times, we will time normalize the observations using cubic spline interpolation (Fisher et al., 2018). This has the benefit both of controlling for the unequal intervals as well as spacing out observations to control for overnight periods. 
+
+
+## Inference criteria
+<!-- What criteria will you use to make inferences? Please describe the information youÍll use (e.g. p-values, bayes factors, specific model fit indices), as well as cut-off criterion, where appropriate. Will you be using one or two tailed tests for each of your analyses? If you are comparing multiple conditions or testing multiple hypotheses, will you account for this?
+
+p-values, confidence intervals, and effect sizes are standard means for making an inference, and any level is acceptable, though some criteria must be specified in this or previous fields. Bayesian analyses should specify a Bayes factor or a credible interval. If you are selecting models, then how will you determine the relative quality of each? In regards to multiple comparisons, this is a question with few "wrong" answers. In other words, transparency is more important than any specific method of controlling the false discovery rate or false error rate. One may state an intention to report all tests conducted or one may conduct a specific correction procedure; either strategy is acceptable.
+
+Example: We will use the standard p<.05 criteria for determining if the ANOVA and the post hoc test suggest that the results are significantly different from those expected if the null hypothesis were correct. The post-hoc Tukey-Kramer test adjusts for multiple comparisons. -->
+
+Aim 1: How much idiographic longitudinal consistency is demonstrated in the wake of a global health crisis?  
+- GIMME model estimation: The GIMME procedure, as implemented in the `gimme` package, uses unified structural equation models, which uses a stepwise model selection procedure for both individual- and group-level models. By default all pathways are tested and pathways are retained using an iterative Legrange multiplier test.  
+- Consistency estimates: Because the intent of the present study is to estimate idiographic consistency, inferences about consistency will be made at person-by-person basis, by examining bootstrapped confidence intervals from the `cor.ci()` function in the `psych` package. 
+
+2. What are the antecedents of consistency (i.e. what prospectively predicts individual differences in idiographic longitudinal consistency of personality)?  
+- Bayesian mutliple regression: 89\% Bayesian Credibility Intervals from 5000 samples (2000 warmup samples).
+
+3. What are the consequences of consistency (i.e. what do individual differences in idiographic longitudinal consistency of personality prospectively predict)?  
+- Bayesian mutliple regression: 89\% Bayesian Credibility Intervals from 5000 samples (2000 warmup samples).
+
+## Data exclusion
+<!-- How will you determine what data or samples, if any, to exclude from your analyses? How will outliers be handled? Will you use any awareness check? Any rule for excluding a particular set of data is acceptable. One may describe rules for excluding a participant or for identifying outlier data.
+
+Example: No checks will be performed to determine eligibility for inclusion besides verification that each subject answered each of the three tastiness indices. Outliers will be included in the analysis. -->
+
+Participants with too little data at an ESM wave (N < 20) or missing a wave of trait or ESM data will be excluded.  
+
+
+## Missing data
+<!-- How will you deal with incomplete or missing data? Any relevant explanation is acceptable. As a final reminder, remember that the final analysis must follow the specified plan, and deviations must be either strongly justified or included as a separate, exploratory analysis.
+
+Example: If a subject does not complete any of the three indices of tastiness, that subject will not be included in the analysis. -->
+
+Because planned missing data meet missing at random (MAR) criterion, we will use multiple imputation as implemented in the `amelia` package in `R`. Previous work indicates that these imputed data show good between-person structure and strong convergence with both raw data and trait data (https://osf.io/pj9sy/).  
+
+
+
+# References
+## 
+\vspace{-2pc}
+\setlength{\parindent}{-0.5in}
+\setlength{\leftskip}{-1in}
+\setlength{\parskip}{8pt}
+\noindent
